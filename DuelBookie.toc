@@ -1,0 +1,19 @@
+## Interface: 11303
+## Title:DuelBookie
+## Author: Looch
+## 1.13.3 Maintainer: Looch <The Greybeards> - Heartseeker
+## Version: 1.0
+## DefaultState: Enabled
+## LoadOnDemand: 0
+## Notes: Bookie manager for gambling on Duel outcomes. 
+## SavedVariables: DuelBookie
+
+## libraries
+libs\embeds.xml
+
+DuelBookie.xml
+
+core\Util.lua
+core\ClientBets.lua
+core\BookieBets.lua
+core\core.lua
