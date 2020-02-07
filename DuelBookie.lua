@@ -2,8 +2,10 @@ local AddonName,addon = ...
 _G.DuelBookie = LibStub('AceAddon-3.0'):NewAddon(addon, AddonName, "AceComm-3.0", "AceSerializer-3.0")
 
 DuelBookie.playerName = UnitName("player")
-DuelBookie.debug = true
-DuelBookie.autoAcceptTrades = true
+DuelBookie.debug = false
+DuelBookie.autoAcceptTrades = false
+DuelBookie.bookieStatus = {}
+DuelBookie.activeTrade = {}
 
 --Enums TODO: find cleaner way for client/bookie statuses
 DuelBookie.clientStatus = {
@@ -12,16 +14,18 @@ DuelBookie.clientStatus = {
 	WaitingForTrade = 3,
 	WaitingForResults = 4,
 	WaitingForPayout = 5,
-	Conclusion = 6,
+	ConclusionLost = 6,
+	ConclusionPaid = 7,
 }
 
 DuelBookie.clientStatusShort = {
 	"DONE",
 	"PENDING",
 	"OWES",
-	"PAID",
+	"WAGERED",
 	"NEEDS",
-	"DONE",
+	"LOST",
+	"WAS PAID",
 }
 
 DuelBookie.betStatus = {
@@ -29,15 +33,20 @@ DuelBookie.betStatus = {
 	BetsClosed = 1,
 	PendingPayout = 2,
 	Complete = 3,
+	Cancelled = 4,
 }
 
-DuelBookie.bookieStatus = {}
-DuelBookie.activeTrade = {}
 
 function DuelBookie:OnInitialize()
 	self:Debug("MDB initialized")
 	self:RegisterComm("DuelBookie")
 	self:GUIInit()
+
+	if addon.debug then 
+		addon:GUI_ShowRootFrame() 
+	else
+		addon:GUI_HideRootFrame()
+	end
 end
 
 function DuelBookie_OnLoad(self)
@@ -47,72 +56,59 @@ function DuelBookie_OnLoad(self)
 	self:RegisterEvent("PLAYER_TRADE_MONEY")
 	self:RegisterEvent("TRADE_SHOW")
 	self:RegisterEvent("TRADE_CLOSED")
-	--self:RegisterEvent("TRADE_REQUEST")
-	--self:RegisterEvent("PLAYER_MONEY")
-	--self:RegisterEvent("TRADE_UPDATE")
 end
 
 function DuelBookie_OnEvent(self, event, ...)
 	if event == "TRADE_SHOW" then
-		addon.ClientBets:InitiateTrade()
+		if addon.isBookie then
+			addon.BookieBets:InitiateTrade()
+		else
+			addon.ClientBets:InitiateTrade()
+		end
 	end
 
 	if event == "TRADE_ACCEPT_UPDATE" then
-		addon:Debug("trade accept")
 		args = { ... }
-		addon:Debug(args[1]..","..args[2])
-		
 		if addon.isBookie and addon.autoAcceptTrades and args[2] == 1 then
 			AcceptTrade()
 		end
 
-		if not addon.isBookie and args[1] == 1 then
-			addon.ClientBets:SetTradeAmount()	
+		if args[1] == 1 then
+			if addon.isBookie then
+				addon.BookieBets:SetTradeAmount()	
+			else
+				addon.ClientBets:SetTradeAmount()	
+			end
 		end
 	end
 
 	if event == "PLAYER_TRADE_MONEY" then
-		addon:Debug("player trade money")
-		addon.ClientBets:HandleTrade()
+		if addon.isBookie then
+			addon.BookieBets:HandleTrade()	
+		else
+			addon.ClientBets:HandleTrade()	
+		end
 	end
 
 	if event == "TRADE_CLOSED" then
-		addon:Debug("player trade finalize")
-		addon.ClientBets:FinalizeTrade()
+		if addon.isBookie then
+			addon.BookieBets:FinalizeTrade()	
+		else
+			addon.ClientBets:FinalizeTrade()	
+		end
 	end
-
-
-	--[[
-	if event == "TRADE_REQUEST" then
-		addon:Debug("trade req")
-		args = { ... }
-		addon:Debug(#args)
-	end
-
-	if event == "PLAYER_MONEY" then
-		addon:Debug("PLAYER_MONEY")
-		local msg = { ... }
-		addon:Debug(#msg)
-	end
-	--]]
-
-
-	--if event == "PLAYER_TRADE_MONEY" then
-	--	addon:Debug("player trade money")
-	--end
-
-
-	--if event == "TRADE_UPDATE" then
-	--	addon:Debug("UPDATE")
-	--end
-
 end
-
 
 comm_msgs = {
 	new_bet = {
-		callback = function(data) ClientBets:ReceiveNewBet(data) end
+		callback = function(data) ClientBets:RefreshAvailableBets() end
 	}, 
+	get_available_bets = {
+		callback = function(data) BookieBets:SendAvailableBet(data) end
+	},
+	refresh_bets = {
+		callback = function(data) ClientBets:RefreshBets(data) end
+	},
 	send_wager = {
 		callback = function(data) BookieBets:ReceiveWager(data) end
 	},
@@ -124,6 +120,9 @@ comm_msgs = {
 	},
 	send_odds = {
 		callback = function(data) ClientBets:ReceiveOdds(data) end
+	},
+	cancel_bet = {
+		callback = function(data) ClientBets:ReceiveCancelledBet(data) end
 	}
 }
 
@@ -180,13 +179,13 @@ function DuelBookie:FormatMoney(money)
 	if money == 0 then return "0g" end
 
     local ret = ""
-    local gold = floor(money/10000);
-    local silver = floor((money - (gold * 10000)) / 100);
-    local copper = mod(money, 100);
+    local gold = floor(money/10000)
+    local silver = floor((money - (gold * 10000)) / 100)
+    local copper = floor(mod(money, 100))
     if gold > 0 then
         ret = gold .. "g "
     end
-    if silver > 0 then
+    if silver > 0 or copper > 0 then
         ret = ret .. silver .. "s "
     end
     if copper > 0 then
@@ -211,4 +210,45 @@ function DuelBookie:GetBetStatusText(status)
 	end
 end
 
+function MDB_ShowRootFrame()
+	addon:GUI_ShowRootFrame()
+end
 
+function MDB_HideRootFrame()
+	addon:GUI_HideRootFrame()
+end
+
+
+local slash_cmds = {
+	show = {
+		cmd = "show",
+		func = MDB_ShowRootFrame,
+		description = "Shows the main window."
+	},
+	hide = {
+		cmd = "hide",
+		func = MDB_HideRootFrame,
+		description = "Hides the main window."
+	},
+}
+
+function MDB_SlashCmd(msg)
+	if not msg or msg == "" then
+		msg = "show"
+	end
+
+	args = {} 
+	idx = 0
+	for arg in string.gmatch(msg, "([^".." ".."]+)") do
+		args[idx] = arg
+		idx = idx + 1
+	end
+
+	if slash_cmds[args[0]] ~= nil then
+		slash_cmds[args[0]].func(args)
+	end
+end
+
+SLASH_MDB1 = "/mdb"
+SLASH_MDB2 = "/bookie"
+SlashCmdList["MDB"] = MDB_SlashCmd
