@@ -1,14 +1,14 @@
 <Ui xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
 	xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
 	xmlns="http://www.blizzard.com/wow/ui/">
-	<Script file="DuelBookie.lua" />
-	<Frame name="DuelBookie_Root" parent="UIParent">
+	<Script file="Bookie.lua" />
+	<Frame name="Bookie_Root" parent="UIParent">
 		<Scripts>
 			<OnLoad>
-				DuelBookie_OnLoad(self)
+				Bookie_OnLoad(self)
 			</OnLoad>
 			<OnEvent>
-				DuelBookie_OnEvent(self, event, ...)
+				Bookie_OnEvent(self, event, ...)
 			</OnEvent>
 		</Scripts>
 	</Frame>

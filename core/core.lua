@@ -1,20 +1,21 @@
 --core 
 
 local _,addon = ...
-DuelBookie = addon
+Bookie = addon
 AceGUI = LibStub("AceGUI-3.0")
 ClientBets = addon:GetModule("ClientBets")
-addon.ClientBets = ClientBets
 BookieBets = addon:GetModule("BookieBets")
+
+addon.ClientBets = ClientBets
 addon.BookieBets = BookieBets
-addon.isBookie = false
 
 local frame = nil 
-local tab = nil
+local root = nil
 local activeTab = nil
 local joinIndex = 0
 
 local highlightTexture = [[Interface\PaperDollInfoFrame\UI-Character-Skills-Bar]]
+local font = "GameFontNormal"
 
 activeTabGroups = {
 	create_lobby = function() return MDB_GetTabLobby() end,
@@ -26,7 +27,6 @@ activeTabGroups = {
 
 local function ValidBetParams(dueler1, dueler2, minbet, maxbet, rake)
 	local validNames = true
-	--local validNames = UnitExists(dueler1) and UnitExists(dueler2) and dueler1 ~= dueler2
 	return validNames and minbet and maxbet and rake and (tonumber(minbet) < tonumber(maxbet))
 end
 
@@ -58,7 +58,8 @@ function MDB_GetTabLobby()
 	bookieButton:SetCallback("OnClick", 
 		function() 
 			SetActiveTab("bookie_create")
-			tab:SelectTab("tab1")
+			--tab:SelectTab("tab1")
+			addon:GUIRefresh_Active()
 		end )
 
 	horzLine = AceGUI:Create("Heading")
@@ -86,7 +87,7 @@ function MDB_GetTabLobby()
 
 		--DEBUG fill lobby join list
 		fillCount = 1
-		if addon.debug then fillCount = 20 end
+		--if addon.debug then fillCount = 20 end
 
 		for i=1, fillCount do 
 			addon:Debug("Bet entry: fields:".. bet.bookie)
@@ -117,12 +118,11 @@ function MDB_GetTabLobby()
 			joinButton:SetText("Join")
 			joinButton:SetFullWidth(true)
 			joinButton:SetFullHeight(true)
-			joinButton:SetDisabled(not bet.open)
 			joinButton:SetCallback("OnClick", 
 				function() 
 					joinIndex = idx
-					SetActiveTab("client_joined")
-					tab:SelectTab("tab1")
+					ClientBets:JoinBet(idx)
+					--tab:SelectTab("tab1")
 				end) 
 			buttonPanel:AddChild(joinButton)
 		end
@@ -277,7 +277,8 @@ function GetTabBookieCreate()
 		function() 
 			BookieBets:CreateBet(dueler1Name, dueler2Name, minbet, maxbet, rake) 
 			SetActiveTab("bookie_status")
-			tab:SelectTab("tab1")
+			--tab:SelectTab("tab1")
+			addon:GUIRefresh_Active()
 		end )
 
 	cancelBetButton = AceGUI:Create("Button")
@@ -287,7 +288,8 @@ function GetTabBookieCreate()
 	cancelBetButton:SetCallback("OnClick", 
 		function() 
 			SetActiveTab("create_lobby")
-			tab:SelectTab("tab1")
+			--tab:SelectTab("tab1")
+			addon:GUIRefresh_Active()
 		end )
 
 	return returnGroup
@@ -307,7 +309,7 @@ function GetControlButtons(status)
 		closeBetsButton:SetText("Close Bets")
 		closeBetsButton:SetCallback("OnClick", 
 			function() 
-				BookieBets:FinalizeWagers() 
+				BookieBets:CloseBets() 
 			end)
 
 	elseif status == addon.betStatus.BetsClosed then
@@ -317,14 +319,14 @@ function GetControlButtons(status)
 		finalLabel:SetFullWidth(true)
 
 		dueler1Button = AceGUI:Create("Button")
-		dueler1Button:SetText(BookieBets.betData.info.duelers[1])
+		dueler1Button:SetText(BookieBets.bet.duelers[1])
 		dueler1Button:SetRelativeWidth(0.5)
 		dueler1Button:SetCallback("OnClick", function() BookieBets:FinalizeDuelWinner(1) end)
 		controlBetsPanel:AddChild(dueler1Button)
 		
 		dueler2Button = AceGUI:Create("Button")
 		dueler2Button:SetRelativeWidth(0.5)
-		dueler2Button:SetText(BookieBets.betData.info.duelers[2])
+		dueler2Button:SetText(BookieBets.bet.duelers[2])
 		dueler2Button:SetCallback("OnClick", function() BookieBets:FinalizeDuelWinner(2) end)
 		controlBetsPanel:AddChild(dueler2Button)
 
@@ -365,24 +367,24 @@ function GetTabBookieStatus()
 	duelerLabel:SetFullWidth(true)
 	headerPanelLeft:AddChild(duelerLabel)
 	--TODO we have the same data in BookieBets and ClientBets here...
-	duelerLabel:SetText(BookieBets.betData.info.duelers[1].." VS "..BookieBets.betData.info.duelers[2])
+	duelerLabel:SetText(BookieBets.bet.duelers[1].." VS "..BookieBets.bet.duelers[2])
 	
 	totalPoolLabel = AceGUI:Create("Label")
 	totalPoolLabel:SetText("PRIZE POOL: "..
-		addon:FormatMoney((BookieBets.betData.pool[1]+BookieBets.betData.pool[2])*(1-BookieBets.betData.info.rake)))
+		addon:FormatMoney((BookieBets.bet.pool[1]+BookieBets.bet.pool[2])*(1-BookieBets.bet.rake)))
 	totalPoolLabel:SetFullWidth(true)
 	headerPanelLeft:AddChild(totalPoolLabel)
 
-	odds = BookieBets:CalculateOdds()
+	local odds = BookieBets:CalculateOdds()
 	oddsLabel = AceGUI:Create("Label")
 	headerPanelLeft:AddChild(oddsLabel)
-	oddsLabel:SetText("ODDS | " .. odds[1]..":"..odds[2])--..ceil(odds[1]/1000)/10 ..":"..ceil(odds[2]/1000)/10)
+	oddsLabel:SetText("ODDS | " .. odds[1]..":"..odds[2])
 	
-	headerPanelRight = AceGUI:Create("SimpleGroup")
+	local headerPanelRight = AceGUI:Create("SimpleGroup")
 	headerPanel:AddChild(headerPanelRight)
 	headerPanelRight:SetRelativeWidth(0.5)
 
-	cancelButton = AceGUI:Create("Button")
+	local cancelButton = AceGUI:Create("Button")
 	headerPanelRight:AddChild(cancelButton)
 	cancelButton:SetFullWidth(true)
 	cancelButton:SetText("Cancel Bet")
@@ -391,7 +393,7 @@ function GetTabBookieStatus()
 	end)
 
 
-	horzline3 = AceGUI:Create("Heading")
+	local horzline3 = AceGUI:Create("Heading")
 	horzline3:SetRelativeWidth(1)
 	body:AddChild(horzline3)
 
@@ -420,9 +422,10 @@ function GetTabBookieStatus()
 	scrollContainer:AddChild(scroll)
 
 	--List entrants who have submitted 
-	for name, data in pairs(BookieBets.betData.entrants) do
+	for name, data in pairs(BookieBets.bet.entrants) do
+		--TODO purge entrants if they are clientStatus.ConclusionLost
 		fillCount = 1
-		if addon.debug then fillCount = 20 end
+		--if addon.debug then fillCount = 20 end
 
 		for i=1, fillCount do
 			local entry = AceGUI:Create("SimpleGroup")
@@ -431,23 +434,26 @@ function GetTabBookieStatus()
 			scroll:AddChild(entry)
 			local entryName = AceGUI:Create("Label")
 			entryName:SetText(name)
-			entryName:SetRelativeWidth(0.5)
+			entryName:SetRelativeWidth(0.4)
 			entry:AddChild(entryName)
 
 			local entryStatus = AceGUI:Create("Label")
 			entryStatus:SetText(addon:GetClientStatusTextShort(data.status))
-			entryStatus:SetRelativeWidth(0.3)
+			entryStatus:SetRelativeWidth(0.40)
 			entry:AddChild(entryStatus)
 
 			local entryWager = AceGUI:Create("Label")
-			entryWager:SetRelativeWidth(0.2)
+			entryWager:SetRelativeWidth(0.15)
 			entry:AddChild(entryWager)
 
-			statusText = addon:FormatMoney(data.wager)
-			if data.status == addon.clientStatus.ConclusionPaid then
-				statusText = addon:FormatMoney(data.payoutReceived)
-			elseif data.status > addon.clientStatus.WaitingForResults then
-				statusText = addon:FormatMoney(data.payout - data.payoutReceived)
+			statusText = ""
+			if data.wager and data.wager > 0 then 
+				statusText = addon:FormatMoney(data.wager)
+				if data.status == addon.clientStatus.ConclusionPaid then
+					statusText = addon:FormatMoney(data.payoutReceived)
+				elseif data.status > addon.clientStatus.WaitingForResults then
+					statusText = addon:FormatMoney(data.payout - data.payoutReceived)
+				end
 			end
 			entryWager:SetText(statusText)
 		end
@@ -462,18 +468,17 @@ function GetTabBookieStatus()
 	controlPanel:SetFullWidth(true)
 	controlPanel:SetLayout("Flow")
 
-	controlButtons = GetControlButtons(BookieBets.betStatus)
+	controlButtons = GetControlButtons(BookieBets.bet.status)
 	controlPanel:AddChild(controlButtons)
 
 	return returnGroup
 end
 
---TODO validate sumbission fields
 function GetTabClientJoined()
 	addon:Debug("Create clientjoined tab")
 	returnGroup = AceGUI:Create("SimpleGroup")
 
-	local bet = ClientBets.availableBets[joinIndex]
+	local bet = ClientBets.activeBet
 
 	--populate tab with bet data
 	local body = AceGUI:Create("SimpleGroup")
@@ -483,7 +488,7 @@ function GetTabClientJoined()
 	returnGroup:AddChild(body)
 
 	local duelerChoiceLabel = AceGUI:Create("Label")
-	duelerChoiceLabel:SetText("Choose your dueler:")
+	duelerChoiceLabel:SetText("Select your choice:")
 	body:AddChild(duelerChoiceLabel)
 
 	local duelerPanel = AceGUI:Create("SimpleGroup")
@@ -495,6 +500,7 @@ function GetTabClientJoined()
 	dueler1Button:SetText(bet.duelers[1])
 	dueler1Button:SetRelativeWidth(0.5)
 	dueler1Button:SetHighlight(highlightTexture)
+	--dueler1Button:SetFont(font, 40, "OVERLAY")
 	duelerPanel:AddChild(dueler1Button)
 	local dueler2Button = AceGUI:Create("InteractiveLabel")
 	dueler2Button:SetText(bet.duelers[2])
@@ -502,11 +508,11 @@ function GetTabClientJoined()
 	dueler2Button:SetHighlight(highlightTexture)
 	duelerPanel:AddChild(dueler2Button)
 
-	horzline = AceGUI:Create("Heading")
+	local horzline = AceGUI:Create("Heading")
 	horzline:SetRelativeWidth(1)
 	body:AddChild(horzline)
 
-	buttonPanel = AceGUI:Create("SimpleGroup")
+	local buttonPanel = AceGUI:Create("SimpleGroup")
 	body:AddChild(buttonPanel)
 	buttonPanel:SetFullWidth(true)
 	buttonPanel:SetLayout("Flow")
@@ -514,10 +520,16 @@ function GetTabClientJoined()
 	local selectedDueler = nil
 	local submitButton = AceGUI:Create("Button")
 	submitButton:SetText("Submit")
-	submitButton:SetRelativeWidth(1)
+	submitButton:SetRelativeWidth(0.7)
 	submitButton:SetDisabled(true)
-	submitButton:SetCallback("OnClick", function() ClientBets:SendWager(selectedDueler) end) 
+	submitButton:SetCallback("OnClick", function() ClientBets:SubmitWager(selectedDueler) end) 
 	buttonPanel:AddChild(submitButton)
+
+	local cancelButton = AceGUI:Create("Button")
+	buttonPanel:AddChild(cancelButton)
+	cancelButton:SetText("Cancel")
+	cancelButton:SetRelativeWidth(0.3)
+	cancelButton:SetCallback("OnClick", function() ClientBets:QuitBet() end) 
 
 	dueler1Button:SetCallback("OnClick", 
 		function(button) 
@@ -539,194 +551,105 @@ function GetTabClientJoined()
 end
 
 function GetTabClientWaiting()
-	returnGroup = AceGUI:Create("SimpleGroup")
+	if not ClientBets.activeBet then addon:Debug("GUI Error! No active client bet.") return end
 
-	body = AceGUI:Create("SimpleGroup")
+	local bet = ClientBets.activeBet
+	local status = bet.entrants[addon.playerName].status
+
+	if status == addon.clientStatus.WaitingForWager then
+		return GetTabClientJoined()
+	end
+
+	local returnGroup = AceGUI:Create("SimpleGroup")
+
+	local body = AceGUI:Create("SimpleGroup")
 	body:SetLayout("List")
 	body:SetFullWidth(true)
 	body:SetFullHeight(true)
 	returnGroup:AddChild(body)
 
 	--Bet info
-	betContainer = AceGUI:Create("SimpleGroup")
+	local betContainer = AceGUI:Create("SimpleGroup")
 	betContainer:SetLayout("List")
 	betContainer:SetFullWidth(true)
+	--betContainer:SetRelativeWidth(0.5)
 	body:AddChild(betContainer)
 
-	bet = ClientBets.availableBets[joinIndex]
 
 	--dueler1, dueler2, wager
-	duelerLabel = AceGUI:Create("Label")
+	local duelerLabel = AceGUI:Create("Label")
 	duelerLabel:SetText(bet.duelers[1] .. " VS " ..bet.duelers[2])
 	betContainer:AddChild(duelerLabel)
 
-	choiceLabel = AceGUI:Create("Label")
-	choiceLabel:SetText("CHOICE: "..bet.duelers[ClientBets.activeChoice])
+	local choiceLabel = AceGUI:Create("Label")
+	choiceLabel:SetText("CHOICE: "..ClientBets:GetChoiceText())
 	betContainer:AddChild(choiceLabel)
 
 	--bookie
-	bookieLabel = AceGUI:Create("Label")
-	bookieLabel:SetText("BOOKIE: "..ClientBets.activeBookie)
+	local bookieLabel = AceGUI:Create("Label")
+	bookieLabel:SetText("BOOKIE: "..ClientBets:GetBookie())
 	betContainer:AddChild(bookieLabel)
 
-	wagerText = "TBD" 
-	if ClientBets.activeWager > 0 then 
-		wagerText = addon:FormatMoney(ClientBets.activeWager) 
-	end
-
-	wagerLabel = AceGUI:Create("Label")
-	wagerLabel:SetText("WAGER: "..wagerText)
+	local wagerLabel = AceGUI:Create("Label")
+	wagerLabel:SetText("WAGER: "..addon:FormatMoney(ClientBets:GetActiveWager()))
 	betContainer:AddChild(wagerLabel)
 
-	horzLine1 = AceGUI:Create("Heading")
+	local horzLine1 = AceGUI:Create("Heading")
 	horzLine1:SetRelativeWidth(1)
 	body:AddChild(horzLine1)
 
-	statusContainer = AceGUI:Create("SimpleGroup")
+	local statusContainer = AceGUI:Create("SimpleGroup")
 	statusContainer:SetLayout("List")
 	statusContainer:SetFullWidth(true)
 	body:AddChild(statusContainer)
 
-	statusLabel = AceGUI:Create("Label")
+	local statusLabel = AceGUI:Create("Label")
 	statusContainer:AddChild(statusLabel)
 	statusLabel:SetFullWidth(true)
 
-	if ClientBets.status == addon.clientStatus.WaitingForTrade then
+	if status == addon.clientStatus.WaitingForTrade then
 		statusLabel:SetText("STATUS: Pay your Bookie")
-	elseif ClientBets.status == addon.clientStatus.WaitingForResults then
+	elseif status == addon.clientStatus.WaitingForResults then
 		statusLabel:SetText("STATUS: Waiting for duel results...")
-	elseif ClientBets.status == addon.clientStatus.WaitingForPayout then
+	elseif status == addon.clientStatus.WaitingForPayout then
 		statusLabel:SetText("STATUS: WINNER! Waiting for Bookie Payouts")
-	elseif ClientBets.status == addon.clientStatus.ConclusionLost then
+	elseif status == addon.clientStatus.ConclusionLost then
 		statusLabel:SetText("STATUS: LOSER. Return to Lobby")	
-	elseif ClientBets.status == addon.clientStatus.ConclusionPaid then
+	elseif status == addon.clientStatus.ConclusionPaid then
 		statusLabel:SetText("STATUS: Paid")
 	end
 
-	payoutLabel = AceGUI:Create("Label")
+	local payoutLabel = AceGUI:Create("Label")
 	statusContainer:AddChild(payoutLabel)
+	payoutLabel:SetText("PAYOUT: "..addon:FormatMoney(ClientBets:GetPayout()))
 
-	payoutText = "TBD"
-	if ClientBets.payout then 
-		payoutText = addon:FormatMoney(ClientBets.payout) 
-	end
-	payoutLabel:SetText("PAYOUT: "..payoutText)
-
-	horzLine2 = AceGUI:Create("Heading")
+	local horzLine2 = AceGUI:Create("Heading")
 	horzLine2:SetRelativeWidth(1)
 	body:AddChild(horzLine2)
 
-	footer = AceGUI:Create("SimpleGroup")
+	local footer = AceGUI:Create("SimpleGroup")
 	footer:SetLayout("Flow")
 	footer:SetFullWidth(true)
 	body:AddChild(footer)
 
-	closeBetButton = AceGUI:Create("Button")
-	closeBetButton:SetText("Return to Lobby")
-	footer:AddChild(closeBetButton)
-	closeBetButton:SetFullWidth(true)
-	closeBetButton:SetDisabled(ClientBets.status ~= addon.clientStatus.ConclusionPaid and ClientBets.status ~= addon.clientStatus.ConclusionLost)
-	closeBetButton:SetCallback("OnClick", 
-		function() 
-			ClientBets:CleanupCurrentBet()
-			addon:GUIRefresh_Lobby()
-		end)
+	local buttonText = "Quit"
+	local buttonDisable = false
+	if status and status >= addon.clientStatus.WaitingForResults then
+		buttonText = "Return to Lobby"
 
+		if status < addon.clientStatus.ConclusionLost then
+			buttonDisable = true
+		end
+	end
+
+	local cancelButton = AceGUI:Create("Button")
+	footer:AddChild(cancelButton)
+	cancelButton:SetDisabled(buttonDisable)
+	cancelButton:SetText(buttonText)
+	cancelButton:SetFullWidth(true)
+	cancelButton:SetCallback("OnClick", function() ClientBets:QuitBet() end) 
+	
 	return returnGroup
-end
-
-local function DrawLobbyTabGroup(container)
-	container:ReleaseChildren()
-
-	body = AceGUI:Create("SimpleGroup")
-	body:SetLayout("List")
-	body:SetFullWidth(true)
-	body:SetFullHeight(true)
-	container:AddChild(body)
-
-	bookieHeaderLabel = AceGUI:Create("Label")
-	bookieHeaderLabel:SetText("Bookie")
-	body:AddChild(bookieHeaderLabel)
-
-	local bookiePanel = AceGUI:Create("SimpleGroup")
-	bookiePanel:SetFullWidth(true)
-	bookiePanel:SetLayout("Flow")
-	body:AddChild(bookiePanel)
-
-	bookieButton = AceGUI:Create("Button")
-	bookiePanel:AddChild(bookieButton)
-	bookieButton:SetText("Create New Bookie Session")
-	bookieButton:SetFullWidth(true)
-	bookieButton:SetHeight(40)
-	bookieButton:SetCallback("OnClick", 
-		function() 
-			SetActiveTab("bookie_create")
-			tab:SelectTab("tab1")
-		end )
-
-	clientHeaderLabel = AceGUI:Create("Heading")
-	clientHeaderLabel:SetRelativeWidth(1)
-	body:AddChild(clientHeaderLabel)
-
-	--scrollable table of available bets
-	clientJoinPanel = AceGUI:Create("SimpleGroup")
-	clientJoinPanel:SetLayout("Flow")
-	clientJoinPanel:SetFullWidth(true)
-	body:AddChild(clientJoinPanel)
-
-	local scrollContainer = AceGUI:Create("SimpleGroup")
-	scrollContainer:SetFullWidth(true)
-	scrollContainer:SetLayout("Fill")
-	clientJoinPanel:AddChild(scrollContainer)
-
-	local scroll = AceGUI:Create("ScrollFrame")
-	scroll:SetLayout("Flow")
-	scrollContainer:AddChild(scroll)
-
-	for idx=1, #ClientBets.bets do
-		bet = ClientBets.bets[idx]
-		addon:Debug("Bet entry: fields:".. bet.bookie)
-
-		local entry = AceGUI:Create("SimpleGroup")
-		entry:SetFullWidth(true)
-		entry:SetLayout("Flow")
-		scroll:AddChild(entry)
-
-		namePanel = AceGUI:Create("SimpleGroup")
-		namePanel:SetRelativeWidth(0.5)
-		namePanel:SetLayout("Flow")
-		entry:AddChild(namePanel)
-
-		buttonPanel = AceGUI:Create("SimpleGroup")
-		buttonPanel:SetRelativeWidth(0.5)
-		buttonPanel:SetLayout("Flow")
-		entry:AddChild(buttonPanel)
-
-		local entryLabel = AceGUI:Create("Label")
-		entryLabel:SetText(bet.duelers[1].." VS ".. bet.duelers[2])
-		namePanel:AddChild(entryLabel)
-		local bookieLabel = AceGUI:Create("Label")
-		bookieLabel:SetText("Bookie: "..bet.bookie)
-		namePanel:AddChild(bookieLabel)
-
-		local joinButton = AceGUI:Create("Button")
-		joinButton:SetText("Join")
-		joinButton:SetFullWidth(true)
-		joinButton:SetFullHeight(true)
-		joinButton:SetCallback("OnClick", 
-			function() 
-				joinIndex = idx
-				SetActiveTab("client_joined")
-				tab:SelectTab("tab1")
-			end) 
-		buttonPanel:AddChild(joinButton)
-	end
-
-	if #ClientBets.bets == 0 then
-		noneLabel = AceGUI:Create("Label")
-		noneLabel:SetText("Waiting for a bookie...")
-		scroll:AddChild(noneLabel)
-	end
 end
 
 function DrawActiveTabGroup(container)
@@ -741,60 +664,61 @@ local function SelectGroup(container, event, group)
 	end
 end
 
-function DuelBookie:GUIInit()
+function Bookie:GUIInit()
 	frame = AceGUI:Create("Frame")
-	frame:SetTitle("Duel Bookie")
-	frame:SetStatusText("v0.1")
+	frame:SetTitle("Bookie")
+	frame:SetStatusText("v0.2")
 	frame:SetLayout("Fill")
 	frame:SetCallback("OnClose", function(widget) AceGUI:Release(widget) end)
-	frame:SetWidth(300)
-	frame:SetHeight(360)--320)
+	frame:SetWidth(260)
+	frame:SetHeight(330)
 
-	tab = AceGUI:Create("TabGroup")
-	frame:AddChild(tab)
-	tab:SetLayout("Flow")
-	tab:SetTabs({
-		{text="Lobby", value="tab1"},
-	})
-	tab:SetCallback("OnGroupSelected", SelectGroup)
+	root = AceGUI:Create("SimpleGroup")
+	frame:AddChild(root)
+	root:SetLayout("Flow")
+
+	ClientBets:GetActiveBet()
 	
-	if addon.BookieBets and addon.isBookie then
-		self:GUIRefresh_BookieStatus()
-	elseif addon.ClientBets and not addon.isBookie and addon.ClientBets.status ~= addon.clientStatus.Inactive then
-		self:GUIRefresh_ClientWaiting()
-	else
-		ClientBets:RefreshAvailableBets()
+	if not ClientBets.activeBet then
+		ClientBets:GetAvailableBets()
 		self:GUIRefresh_Lobby()
 	end
 end
 
-function DuelBookie:GUIRefresh_Active()
-	tab:SelectTab("tab1")
+function Bookie:GUIRefresh_Active()
+	--tab:SelectTab("tab1")
+	root:ReleaseChildren()
+	DrawActiveTabGroup(root)
 end
 
-function DuelBookie:GUIRefresh_ClientWaiting()
+function Bookie:GUIRefresh_ClientJoined()
+	SetActiveTab("client_joined")
+	self:GUIRefresh_Active()
+end
+
+function Bookie:GUIRefresh_ClientWaiting()
 	SetActiveTab("client_waiting")
 	self:GUIRefresh_Active()
 end
 
-function DuelBookie:GUIRefresh_BookieStatus()
+function Bookie:GUIRefresh_BookieStatus()
 	SetActiveTab("bookie_status")
 	self:GUIRefresh_Active()
 end
 
-function DuelBookie:GUIRefresh_Lobby()
+function Bookie:GUIRefresh_Lobby()
 	addon:Debug("GUI refreshing lobby")
 	SetActiveTab("create_lobby")
-	tab:SelectTab("tab1") 
+	self:GUIRefresh_Active()
 end
 
-function DuelBookie:GUI_ShowRootFrame()
+function Bookie:GUI_ShowRootFrame()
 	if not frame:IsVisible() then
 		self:GUIInit()
 		frame:Show()
 	end
 end
 
-function DuelBookie:GUI_HideRootFrame()
+function Bookie:GUI_HideRootFrame()
 	frame:Hide()
 end
