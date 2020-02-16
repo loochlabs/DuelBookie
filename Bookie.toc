@@ -2,7 +2,7 @@
 ## Title:Bookie
 ## Author: Looch
 ## 1.13.3 Maintainer: Looch <The Greybeards> - Heartseeker
-## Version: 0.3
+## Version: 0.4
 ## DefaultState: Enabled
 ## LoadOnDemand: 0
 ## Notes: Bookie manager for gambling on Duel outcomes. 

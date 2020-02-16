@@ -281,7 +281,7 @@ function Bookie:FormatMoney(money)
     if gold > 0 then
         ret = gold .. "g "
     end
-    if silver > 0 or copper > 0 then
+    if silver > 0 then
         ret = ret .. silver .. "s "
     end
     if copper > 0 then

@@ -108,9 +108,8 @@ local BookieStatusData = {
 	},
 }
 
-
 function Bookie:ValidBetParams(dueler1, dueler2, minbet, maxbet, rake)
-	local validNames = dueler1 ~= nil and dueler2 ~= nil
+	local validNames = dueler1 ~= nil and dueler2 ~= nil and dueler1 ~= dueler2
  	return validNames and minbet and maxbet and rake and (tonumber(minbet) < tonumber(maxbet))
 end
 
@@ -508,28 +507,29 @@ function Bookie:GetTabBookieStatus()
 	headerPanelCenter:AddChild(oddsLabel)
 	oddsLabel:SetText("ODDS")
 
-
 	local oddsContainer = AG:Create("SimpleGroup")
 	headerPanelCenter:AddChild(oddsContainer)
 	oddsContainer:SetLayout("Flow")
 	oddsContainer:SetRelativeWidth(1)
 
+	addon:Debug(odds[1]..":"..odds[2])
+
 	local dueler1OddsLabel = AG:Create("Label")
 	oddsContainer:AddChild(dueler1OddsLabel)
-	dueler1OddsLabel:SetText(odds[1])
+	dueler1OddsLabel:SetText(string.format("%.1f",odds[1]))
 	dueler1OddsLabel:SetColor(unpack(DuelerColors[1]))
-	dueler1OddsLabel:SetRelativeWidth(0.2)
+	dueler1OddsLabel:SetRelativeWidth(0.35)
 
 	local colonLabel = AG:Create("Label")
 	oddsContainer:AddChild(colonLabel)
 	colonLabel:SetText(" : ")
-	colonLabel:SetRelativeWidth(0.2)
+	colonLabel:SetRelativeWidth(0.12)
 
 	local dueler2OddsLabel = AG:Create("Label")
 	oddsContainer:AddChild(dueler2OddsLabel)
-	dueler2OddsLabel:SetText(odds[2])
+	dueler2OddsLabel:SetText(string.format("%.1f",odds[2]))
 	dueler2OddsLabel:SetColor(unpack(DuelerColors[2]))
-	dueler2OddsLabel:SetRelativeWidth(0.2)
+	dueler2OddsLabel:SetRelativeWidth(0.35)
 	
 	local headerPanelRight = AG:Create("SimpleGroup")
 	headerPanel:AddChild(headerPanelRight)
@@ -929,32 +929,37 @@ function Bookie:GUIInit()
 end
 
 function Bookie:GUIRefresh_Active()
+	if not frame:IsVisible() then return end
 	root:ReleaseChildren()
 	self:DrawActiveTabGroup(root)
 end
 
 function Bookie:GUIRefresh_ClientJoined()
+	if not frame:IsVisible() then return end
 	self:SetFrame("client_joined")
 	self:GUIRefresh_Active()
 end
 
 function Bookie:GUIRefresh_ClientWaiting()
+	if not frame:IsVisible() then return end
 	self:SetFrame("client_waiting")
 	self:GUIRefresh_Active()
 end
 
 function Bookie:GUIRefresh_BookieCreate()
+	if not frame:IsVisible() then return end
 	self:SetFrame("bookie_create")
 	self:GUIRefresh_Active()
 end
 
 function Bookie:GUIRefresh_BookieStatus()
+	if not frame:IsVisible() then return end
 	self:SetFrame("bookie_status")
 	self:GUIRefresh_Active()
 end
 
 function Bookie:GUIRefresh_Lobby()
-	addon:Debug("GUI refreshing lobby")
+	if not frame:IsVisible() then return end
 	self:SetFrame("lobby")
 	self:GUIRefresh_Active()
 end
