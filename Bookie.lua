@@ -1,10 +1,15 @@
 local AddonName,addon = ...
 _G.Bookie = LibStub('AceAddon-3.0'):NewAddon(addon, AddonName, "AceComm-3.0", "AceSerializer-3.0")
 
+if BookieSave == nil then BookieSave = {} end
+BookieSave.Bookie = Bookie
+
 Bookie.playerName = nil
-Bookie.debug = false
+Bookie.debug = true
 Bookie.autoAcceptTrades = false
 Bookie.isBookie = false
+
+local syncTargets = {}
 
 Bookie.clientStatus = {
 	Inactive = 1,
@@ -16,10 +21,11 @@ Bookie.clientStatus = {
 	ConclusionPaid = 7,
 }
 
+--TODO remove, handling this in core gui
 Bookie.clientStatusShort = {
 	"DONE",
-	"PENDING",
-	"NEEDS TO TRADE",
+	"CHOOSING OPTION",
+	"NEEDS TO PAY",
 	"WAGERED",
 	"NEEDS",
 	"LOST",
@@ -34,8 +40,20 @@ Bookie.betStatus = {
 	Cancelled = 4,
 }
 
+function Bookie:LoadSavedVariables()
+	addon:Debug("loading saved vars")
+	addon.isBookie = BookieSave.Bookie.isBookie or false
+
+	if addon.isBookie then
+		BookieBets.bet = BookieSave.Bookie.BookieBets.bet
+		BookieBets:UpdateClients()
+	end 
+end
 
 function Bookie:OnInitialize()
+	addon:Debug("Bookie initialize")
+	addon:LoadSavedVariables()
+
 	self.playerName = UnitName("player")
 	self:RegisterComm("Bookie")
 	self:GUIInit()
@@ -47,10 +65,10 @@ function Bookie:OnInitialize()
 	end
 end
 
-
 event_handlers = {
 	TRADE_SHOW = {
 		handler = function(...) 
+			addon:Debug("TRADE_SHOW")
 			if addon.isBookie then
 				addon.BookieBets:InitiateTrade()
 			else
@@ -60,22 +78,47 @@ event_handlers = {
 	},
 	TRADE_ACCEPT_UPDATE = {
 		handler = function(...) 
+			addon:Debug("TRADE_ACCEPT_UPDATE")
 			local args = { ... }
 			if addon.isBookie and addon.autoAcceptTrades and args[2] == 1 then
 				AcceptTrade()
 			end
 
 			if args[1] == 1 then
+				addon:Debug("one player accept")
 				if addon.isBookie then
 					addon.BookieBets:SetTradeAmount()	
 				else
 					addon.ClientBets:SetTradeAmount()	
 				end
 			end
+
+			--[[
+			if args[1] == 1 and args[2] == 0 then
+				addon:Debug("one player accept")
+				if addon.isBookie then
+					addon.BookieBets:SetTradeAmount()	
+				else
+					addon.ClientBets:SetTradeAmount()	
+				end
+			elseif args[1] == 1 and args[2] == 1 then
+				addon:Debug("both player accept")
+				if addon.isBookie then
+					addon.BookieBets:HandleTrade()	
+				else
+					addon.ClientBets:HandleTrade()	
+				end
+			end--]]
+		end,
+	},
+	TRADE_REQUEST_CANCEL = {
+		handler = function(...) 
+			addon:Debug("TRADE_REQUEST_CANCEL")
 		end,
 	},
 	PLAYER_TRADE_MONEY = {
 		handler = function(...) 
+			addon:Debug("PLAYER_TRADE_MONEY")
 			if addon.isBookie then
 				addon.BookieBets:HandleTrade()	
 			else
@@ -85,6 +128,7 @@ event_handlers = {
 	},
 	TRADE_CLOSED = {
 		handler = function(...) 
+			addon:Debug("TRADE_CLOSED")
 			if addon.isBookie then
 				addon.BookieBets:FinalizeTrade()	
 			else
@@ -94,13 +138,18 @@ event_handlers = {
 	},
 	GROUP_JOINED = {
 		handler = function(...) 
+			addon:Debug("Joined group")
 			if not addon.isBookie and not addon.ClientBets.activeBet then
 				addon.ClientBets:GetAvailableBets()	
+			elseif addon.isBookie and addon.BookieBets.bet then
+				local clients = Bookie:GetSyncTargetOptions()
+				for name,_ in pairs(clients) do
+					BookieBets:SendAvailableBet({name})
+				end
 			end
 		end,
 	},
 }
-
 
 function Bookie_OnLoad(self)
 	for event,_ in pairs(event_handlers) do
@@ -115,7 +164,7 @@ function Bookie_OnEvent(self, event, ...)
 	end
 end
 
-comm_msgs = {
+local comm_msgs = {
 	new_bet = {
 		callback = function(data) ClientBets:GetAvailableBets() end
 	}, 
@@ -143,9 +192,9 @@ comm_msgs = {
 	send_client_trade = {
 		callback = function(data) BookieBets:ReceieveClientTrade(data) end
 	},
-	--send_payout = {
-	--	callback = function(data) ClientBets:ReceivePayout(data) end
-	--},
+	send_client_payout_confirm = {
+		callback = function(data) BookieBets:ReceieveClientPayoutConfirm(data) end
+	},
 	cancel_bet = {
 		callback = function(data) ClientBets:ReceiveCancelledBet(data) end
 	},
@@ -154,22 +203,67 @@ comm_msgs = {
 	},
 }
 
+local function AddNameToList(list, name)
+   addon:Debug("Sync:addNameToList(): "..name)
+   list[name] = tostring(name)
+end
+
+function Bookie:GetSyncGroupOptions()
+   local name, isOnline, class, _
+   local ret = {}
+   -- target
+   --if UnitIsFriend("player", "target") and UnitIsPlayer("target") then
+   --   addNameToList(ret, addon:UnitName("target"), select(2, UnitClass("target")))
+   --end
+   -- group
+   for i = 1, GetNumGroupMembers() do
+	   name, _, _, _, _, _, _, isOnline = GetRaidRosterInfo(i)
+      if isOnline then AddNameToList(ret, name) end
+   end
+   -- friends
+   for i = 1, C_FriendList.GetNumOnlineFriends() do
+      name, _, class, _, isOnline = C_FriendList.GetFriendInfoByIndex(i)
+      if isOnline then AddNameToList(ret, name) end
+   end
+   -- guildmembers
+   --for i = 1, GetNumGuildMembers() do
+   --   name, _, _, _, _, _, _, _, isOnline,_,class = GetGuildRosterInfo(i)
+   --   if isOnline then AddNameToList(ret, name) end
+   --end
+   -- Remove ourselves
+   if not addon.debug then ret[addon.playerName] = nil end
+   -- Check if it's empty
+   local isEmpty = true
+   for k in pairs(ret) do isEmpty = false; break end
+   ret[1] = isEmpty and "--No recipients available--" or nil
+   --table.sort(ret, function(a,b) return a > b end)
+   return ret
+end
+
 --- Send a Bookie Comm Message using AceComm-3.0
 -- See Bookie:OnCommReceived() on how to receive these messages.
 -- @param target The receiver of the message. Can be "group", "guild" or "playerName".
 -- @param command The command to send.
 -- @param ... Any number of arguments to send along. Will be packaged as a table.
 function Bookie:SendCommand(command, data)
+	if not (IsInGuild() or IsInRaid() or IsInGroup()) then addon:Debug("No comm methods are available."); return end
+
 	local toSend = self:Serialize(command, data)
 
+	if IsInGuild() then
+		addon:Debug("Sending GUILD comm: "..command)
+		self:SendCommMessage("Bookie", toSend, "GUILD")
+	end
+
 	if IsInRaid() then 
+		addon:Debug("Sending RAID comm: "..command)
 		self:SendCommMessage("Bookie", toSend, "RAID")
 	elseif IsInGroup() then 
+		addon:Debug("Sending PARTY comm: "..command)
 		self:SendCommMessage("Bookie", toSend, "PARTY")
-	elseif IsInGuild() then
-		self:SendCommMessage("Bookie", toSend, "GUILD")
-	else
-		addon:Debug("No comm methods are available.")
+	--elseif IsInGuild() then
+	--	addon:Debug("Sending GUILD comm: "..command)
+	--	self:SendCommMessage("Bookie", toSend, "GUILD")
 	end
 end
 
@@ -181,10 +275,7 @@ end
 -- local success, command, data = self:Deserialize(serializedMsg)
 -- --'data' is a table containing the varargs delivered to Bookie:SendCommand().
 function Bookie:OnCommReceived(prefix, serializedMsg, distri, sender)
-	if prefix ~= "Bookie" then
-		addon:Debug("Error: Invalid comm prefix.")
-		return
-	end
+	if prefix ~= "Bookie" then addon:Debug("Error: Invalid comm prefix.") return end
 
 	-- data is always a table to be unpacked
 	local test, command, data = self:Deserialize(serializedMsg)

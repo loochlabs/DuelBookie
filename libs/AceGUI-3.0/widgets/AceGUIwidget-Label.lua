@@ -15,6 +15,7 @@ local CreateFrame, UIParent = CreateFrame, UIParent
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script
 -- GLOBALS: GameFontHighlightSmall
+-- GameFontHighlightSmall = "GameFontHightlightSmall"
 
 --[[-----------------------------------------------------------------------------
 Support functions
@@ -133,7 +134,8 @@ local methods = {
 	end,
 
 	["SetFontObject"] = function(self, font)
-		self:SetFont((font or GameFontHighlightSmall):GetFont())
+		self:SetFont((font or GameFontNormal):GetFont())
+		UpdateImageAnchor(self)
 	end,
 
 	["SetImageSize"] = function(self, width, height)
@@ -158,7 +160,7 @@ local function Constructor()
 	local frame = CreateFrame("Frame", nil, UIParent)
 	frame:Hide()
 
-	local label = frame:CreateFontString(nil, "BACKGROUND", "GameFontHighlightSmall")
+	local label = frame:CreateFontString(nil, "BACKGROUND", "GameFontNormal")
 	local image = frame:CreateTexture(nil, "BACKGROUND")
 
 	-- create widget

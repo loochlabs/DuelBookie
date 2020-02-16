@@ -68,6 +68,7 @@ local function SizerE_OnMouseDown(frame)
 	AceGUI:ClearFocus()
 end
 
+--[[
 local function StatusBar_OnEnter(frame)
 	frame.obj:Fire("OnEnterStatusBar")
 end
@@ -75,6 +76,7 @@ end
 local function StatusBar_OnLeave(frame)
 	frame.obj:Fire("OnLeaveStatusBar")
 end
+--]]
 
 --[[-----------------------------------------------------------------------------
 Methods
@@ -84,10 +86,10 @@ local methods = {
 		self.frame:SetParent(UIParent)
 		self.frame:SetFrameStrata("FULLSCREEN_DIALOG")
 		self:SetTitle()
-		self:SetStatusText()
+		--self:SetStatusText()
 		self:ApplyStatus()
 		self:Show()
-        self:EnableResize(true)
+        --self:EnableResize(false)
 	end,
 
 	["OnRelease"] = function(self)
@@ -131,15 +133,15 @@ local methods = {
 	["Show"] = function(self)
 		self.frame:Show()
 	end,
-
-	["EnableResize"] = function(self, state)
-		local func = state and "Show" or "Hide"
-		self.sizer_se[func](self.sizer_se)
-		self.sizer_s[func](self.sizer_s)
-		self.sizer_e[func](self.sizer_e)
-	end,
-
+	
+	--["EnableResize"] = function(self, state)
+	--	local func = state and "Show" or "Hide"
+	--	self.sizer_se[func](self.sizer_se)
+	--	self.sizer_s[func](self.sizer_s)
+	--	self.sizer_e[func](self.sizer_e)
+	--end,
 	-- called to set an external table to store status in
+
 	["SetStatusTable"] = function(self, status)
 		assert(type(status) == "table")
 		self.status = status
@@ -159,6 +161,7 @@ local methods = {
 			frame:SetPoint("CENTER")
 		end
 	end
+	
 }
 
 --[[-----------------------------------------------------------------------------
@@ -194,13 +197,22 @@ local function Constructor()
 	frame:SetScript("OnHide", Frame_OnClose)
 	frame:SetScript("OnMouseDown", Frame_OnMouseDown)
 
+--[[
 	local closebutton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
 	closebutton:SetScript("OnClick", Button_OnClick)
 	closebutton:SetPoint("BOTTOMRIGHT", -27, 17)
 	closebutton:SetHeight(20)
 	closebutton:SetWidth(100)
 	closebutton:SetText(CLOSE)
+	--]]
+	local closebutton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+	closebutton:SetScript("OnClick", Button_OnClick)
+	closebutton:SetPoint("TOPRIGHT", -4, -4)
+	--closebutton:SetHeight(20)
+	--closebutton:SetWidth(100)
+	--closebutton:SetText(CLOSE)
 
+	--[[
 	local statusbg = CreateFrame("Button", nil, frame)
 	statusbg:SetPoint("BOTTOMLEFT", 15, 15)
 	statusbg:SetPoint("BOTTOMRIGHT", -132, 15)
@@ -217,6 +229,7 @@ local function Constructor()
 	statustext:SetHeight(20)
 	statustext:SetJustifyH("LEFT")
 	statustext:SetText("")
+	--]]
 
 	local titlebg = frame:CreateTexture(nil, "OVERLAY")
 	titlebg:SetTexture(131080) -- Interface\\DialogFrame\\UI-DialogBox-Header
@@ -248,6 +261,7 @@ local function Constructor()
 	titlebg_r:SetWidth(30)
 	titlebg_r:SetHeight(40)
 
+	--[[
 	local sizer_se = CreateFrame("Frame", nil, frame)
 	sizer_se:SetPoint("BOTTOMRIGHT")
 	sizer_se:SetWidth(25)
@@ -255,6 +269,8 @@ local function Constructor()
 	sizer_se:EnableMouse()
 	sizer_se:SetScript("OnMouseDown",SizerSE_OnMouseDown)
 	sizer_se:SetScript("OnMouseUp", MoverSizer_OnMouseUp)
+	
+
 
 	local line1 = sizer_se:CreateTexture(nil, "BACKGROUND")
 	line1:SetWidth(14)
@@ -288,6 +304,8 @@ local function Constructor()
 	sizer_e:SetScript("OnMouseDown", SizerE_OnMouseDown)
 	sizer_e:SetScript("OnMouseUp", MoverSizer_OnMouseUp)
 
+	--]]
+
 	--Container Support
 	local content = CreateFrame("Frame", nil, frame)
 	content:SetPoint("TOPLEFT", 17, -27)
@@ -308,7 +326,8 @@ local function Constructor()
 	for method, func in pairs(methods) do
 		widget[method] = func
 	end
-	closebutton.obj, statusbg.obj = widget, widget
+	--closebutton.obj, statusbg.obj = widget, widget
+	closebutton.obj = widget
 
 	return AceGUI:RegisterAsContainer(widget)
 end

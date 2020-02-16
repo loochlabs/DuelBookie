@@ -3,16 +3,31 @@
 --Description: Manager for creating and dispatching bets to listening bet clients. 
 
 local _,addon = ...
-local BookieBets = addon:NewModule("BookieBets", "AceEvent-3.0")
+BookieBets = BookieSave.Bookie.BookieBets or addon:NewModule("BookieBets", "AceEvent-3.0")
 
-BookieBets.bet = nil
-BookieBets.bookiePool = 2 --2g put up for default pool
+--TODO change this to 20000 to match money formatting
+--BookieBets.bookiePool = 2 --2g put up for default pool
+
+function BookieBets:Save()
+	BookieSave.Bookie.isBookie = addon.isBookie
+	BookieSave.Bookie.BookieBets.bet = self.bet
+end
+
+function BookieBets:UpdateClients()
+	if not addon.isBookie then return end
+	
+	for client,_ in pairs(self.bet.entrants) do
+		self:UpdateClient(client)
+	end
+end
 
 function BookieBets:UpdateClient(client)
 	local bet = self.bet
 
 	msg = { addon.playerName, client, bet }
 	addon:SendCommand("update_client_status", msg)
+
+	self:Save()
 end
 
 --Set parameters for a new bet. Establish this player is a the BOOKIE,
@@ -36,6 +51,8 @@ function BookieBets:CreateBet(dueler1, dueler2, min, max, rake)
 	--Send message to listening clients that a new bet is available.
 	msg = {}
  	addon:SendCommand("new_bet", msg)
+
+ 	self:Save()
 end
 
 function BookieBets:SendAvailableBet(data) 
@@ -87,7 +104,7 @@ function BookieBets:ReceiveClientQuit(data)
 	
 	self.bet.entrants[client] = nil
 	self:UpdateClient(client)
-	
+
 	addon:GUIRefresh_BookieStatus()
 end
 
@@ -99,7 +116,7 @@ function BookieBets:ReceiveChoice(data)
 	if not addon.isBookie then return end
 
 	bookie, client, choice = unpack(data)
-	addon:Debug("Received wager from " .. client..","..choice)
+	addon:Debug("Received choice from " .. client..","..choice)
 
 	if bookie ~= addon.playerName then addon:Debug("Bookie: Receieved wager but not the client's bookie."); return end
 	if not self.bet then addon:Debug("Error! bookie was not initialized correctly."); return end
@@ -117,12 +134,14 @@ end
 
 function BookieBets:ReceieveClientTrade(data)
 	if not addon.isBookie then return end
-	if not addon.betStatus.Open then addon:Debug("Bookie is not open for bet trades"); return end
+	if self.bet.status ~= addon.betStatus.Open then addon:Debug("Bookie is not open for bet trades"); return end
 
 	clientName, clientTrade = unpack(data)
 	addon:Debug("Received a trade from our client: "..clientName)
 
 	entrant = self.bet.entrants[clientName]
+	if entrant.status ~= addon.clientStatus.WaitingForTrade then addon:Debug("Client already paid: "..clientName); return end 
+
 	entrant.wager = clientTrade 
 	entrant.status = addon.clientStatus.WaitingForResults
 	self.bet.pool[entrant.choice] = self.bet.pool[entrant.choice] + entrant.wager
@@ -131,14 +150,32 @@ function BookieBets:ReceieveClientTrade(data)
 	addon:GUIRefresh_BookieStatus()
 end
 
+function BookieBets:ReceieveClientPayoutConfirm(data)
+	if not addon.isBookie then return end
+	if self.bet.status ~= addon.betStatus.PendingPayout then addon:Debug("Bookie is not ready for payouts"); return end
+
+	local clientName, payout = unpack(data)
+	local client = self.bet.entrants[clientName]
+
+	if client.status ~= addon.clientStatus.WaitingForPayout then addon:Debug("Client already paid: "..clientName); return end 
+
+	client.payoutReceived = payout + client.payoutReceived
+	if client.payoutReceived >= client.payout then
+		addon:Debug("Traded the correct payout to the client: "..clientName)
+		client.status = addon.clientStatus.ConclusionPaid
+	end
+
+	self:UpdateClient(clientName)
+	addon:GUIRefresh_BookieStatus()
+end
+
 function BookieBets:InitiateTrade()
 	if not addon.isBookie then return end
+	if not self.bet then return end
 
 	target = UnitName("target")
 	if not self.bet.entrants[target] then addon:Debug("Not targeting one of your clients!"); return end
-	if self.bet.entrants[target].status ~= addon.clientStatus.WaitingForPayout then addon:Debug("TRADE: Client status incorrect!"); return end
 
-	--wait for money to be traded 
 	addon:Debug("Trade opened with your client.")
 	self.tradeOpen = true
 	self.tradeAmount = 0
@@ -149,33 +186,44 @@ function BookieBets:SetTradeAmount()
 	if not addon.isBookie then return end
 	if not self.tradeOpen then addon:Debug("Bookie is not correctly open for trades."); return end
 
-    self.tradeAmount = GetPlayerTradeMoney()
+	local status = self.bet.entrants[self.tradeTarget].status
+	if status == addon.clientStatus.WaitingForTrade then
+    	self.tradeAmount = GetTargetTradeMoney()
+    elseif status == addon.clientStatus.WaitingForPayout then
+    	self.tradeAmount = GetPlayerTradeMoney()
+    else
+    	addon:Debug("Bookie is not correctly open for trades.");
+    	self.tradeOpen = false
+    	self.tradeTarget = nil
+    end
 end
 
 function BookieBets:HandleTrade()
 	if not addon.isBookie then return end
-	if not self.tradeOpen then addon:Debug("Client is not correctly open for trades."); return end
+	if not self.tradeOpen then addon:Debug("Bookie is not correctly open for trades."); return end
+	if not self.tradeAmount or self.tradeAmount == 0 then return end
 
-	addon:Debug("Bookie sending trade amount: "..addon:FormatMoney(self.tradeAmount))
+	addon:Debug("Bookie trade amount: "..addon:FormatMoney(self.tradeAmount))
 
-	client = self.bet.entrants[self.tradeTarget]
-
+	local client = self.bet.entrants[self.tradeTarget]
 	if not client then addon:Debug("Client not found for this bookie!"); return end
 
-	client.payoutReceived = self.tradeAmount + client.payoutReceived
-	if client.payoutReceived >=client.payout then
-		addon:Debug("Traded the correct payout to the client")
-		client.status = addon.clientStatus.ConclusionPaid
-	end
+	local status = client.status
+	if status == addon.clientStatus.WaitingForTrade then
+		self:ReceieveClientTrade( {self.tradeTarget, self.tradeAmount} )
 
-	msg = { addon.playerName, client.status, target, 0 }
-	addon:SendCommand("update_client_status", msg)
+    elseif status == addon.clientStatus.WaitingForPayout then
+    	self:ReceieveClientPayoutConfirm( {self.tradeTarget, self.tradeAmount} )
+    else
+    	addon:Debug("Bookie is not correctly open for trades.");
+    	self.tradeOpen = false
+    end
 
 	addon:GUIRefresh_BookieStatus()
 end
 
 function BookieBets:FinalizeTrade()
-	if addon.isBookie then return end
+	if not addon.isBookie then return end
 	self.tradeOpen = false
 end
 
@@ -265,6 +313,7 @@ function BookieBets:FinalizeDuelWinner(choice)
 	end
 
 	self.bet.status = addon.betStatus.PendingPayout
+	self:Save()
 	addon:GUIRefresh_BookieStatus()
 end
 
@@ -283,6 +332,7 @@ end
 function BookieBets:EndCurrentBet()
 	self.bet = nil
 	addon.isBookie = false
+	self:Save()
 	addon:GUIRefresh_Lobby()
 end
 
@@ -299,4 +349,16 @@ function BookieBets:GetEntrantsCount()
 	local count = 0
 	for _ in pairs(self.bet.entrants) do count = count + 1 end
 	return count
+end
+
+function BookieBets:GetPrizePoolRaw()
+	return (self.bet.pool[1] + self.bet.pool[2]) 
+end
+
+function BookieBets:GetPrizePoolRaked()
+	return self:GetPrizePoolRaw() * (1-self.bet.rake)
+end
+
+function BookieBets:GetRakeTotal()
+	return self:GetPrizePoolRaw() * self.bet.rake
 end

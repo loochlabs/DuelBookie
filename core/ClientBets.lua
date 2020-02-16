@@ -9,39 +9,54 @@ ClientBets.availableBets = {}
 ClientBets.activeBet = nil
 ClientBets.tradeOpen = false
 
+local UpdateCallbacks = {
+	[addon.clientStatus.Inactive] = {
+		func = function() addon:GUIRefresh_Lobby() end,
+		debug = "Client purged. Returning to Lobby",
+	},
+	[addon.clientStatus.WaitingForWager] = {
+		func = function() addon:GUIRefresh_ClientJoined() end,
+		debug = "Successfully joined bookie session.",
+	},
+	[addon.clientStatus.WaitingForTrade] = {
+		func = function() addon:GUIRefresh_ClientWaiting() end,
+		debug = "Bookie received your wager, waiting for your trade.",
+	},
+	[addon.clientStatus.WaitingForResults] = {
+		func = function() addon:GUIRefresh_ClientWaiting() end,
+		debug = "Bookie received your bet, waiting for results.",
+	},
+	[addon.clientStatus.WaitingForPayout] = {
+		func = function() addon:GUIRefresh_ClientWaiting() end,
+		debug = "Bookie decided winer, waiting for payouts.",
+	},
+	[addon.clientStatus.ConclusionPaid] = {
+		func = function() addon:GUIRefresh_ClientWaiting() end,
+		debug = "Received payouts.",
+	},
+	[addon.clientStatus.ConclusionLost] = {
+		func = function() addon:GUIRefresh_ClientWaiting() end,
+		debug = "Client LOST this bet.",
+	},
+}
+
 function ClientBets:ReceiveUpdate(data)
 	if addon.isBookie then return end
 
-	bookie, client, bet = unpack(data)
+	local bookie, client, bet = unpack(data)
 
-	if client ~= addon.playerName then return end
+	if client ~= addon.playerName then addon:Debug("invalid client name update: ") return end
 	if not bet.entrants[client] then addon:Debug("Error! Client does not exist in bookie's active bet"); return end
 
 	self.activeBet = bet
 
-	if bet.entrants[client].status == addon.clientStatus.WaitingForWager then
-		addon:Debug("Successfully joined bookie session.")
-		addon:GUIRefresh_ClientJoined()
-	elseif bet.entrants[client].status == addon.clientStatus.WaitingForTrade then
-		addon:Debug("Bookie received your wager, waiting for your trade.")
-		addon:GUIRefresh_ClientWaiting()
-	elseif bet.entrants[client].status == addon.clientStatus.WaitingForResults then
-		addon:Debug("Bookie received your bet, waiting for results.")
-		addon:GUIRefresh_ClientWaiting()
-	elseif bet.entrants[client].status == addon.clientStatus.WaitingForPayout then
-		addon:Debug("Bookie decided winer, waiting for payouts.")
-		addon:GUIRefresh_ClientWaiting()
-	elseif bet.entrants[client].status == addon.clientStatus.ConclusionPaid then
-		addon:Debug("Received payouts.")
-		addon:GUIRefresh_ClientWaiting()
-	elseif bet.entrants[client].status == addon.clientStatus.ConclusionLost then
-		addon:Debug("Client LOST this bet.")
-		addon:GUIRefresh_ClientWaiting()
-	elseif bet.entrants[client].status == addon.clientStatus.Inactive then
-		addon:Debug("Client purged. Returning to Lobby")
-		addon:GUIRefresh_Lobby()
+	local callback = UpdateCallbacks[bet.entrants[addon.playerName].status]
+	if callback then
+		callback.func()
+		addon.Debug(callback.debug)
+	else
+		addon:Debug("Update received: Invalid client status.")
 	end
-
 end
 
 function ClientBets:ReceiveAvailableBet(data)
@@ -77,12 +92,9 @@ function ClientBets:GetAvailableBets()
 	--Clear our current available bets, get a fresh update from all possible bookies
 	self.availableBets = {}
 
-	addon:Debug("player name "..addon.playerName)
-
 	msg = { addon.playerName }
 	addon:SendCommand("get_available_bets", msg)
 end
-
 
 function ClientBets:ReceiveBetClosed(data)
 	if addon.isBookie then return end
@@ -100,14 +112,23 @@ function ClientBets:JoinBet(index)
 
 	msg = { bet.bookie, addon.playerName }
 	addon:SendCommand("join_bet", msg)
+
 	addon:GUIRefresh_Lobby()
 end
 
 function ClientBets:QuitBet()
 	if addon.isBookie then return end
 
-	msg = { bet.bookie, addon.playerName }
+	--TODO break this up into a seperate call, the bookie alert is redundant if the bookie cancelled a bet
+	--	This function needs a cleanup + bookie alert
+	msg = { self.activeBet.bookie, addon.playerName }
 	addon:SendCommand("quit_bet", msg)
+
+	self.activeBet = nil
+	self.availableBets = nil
+	self:GetAvailableBets()
+
+	
 	addon:GUIRefresh_Lobby()
 end
 
@@ -125,12 +146,12 @@ end
 
 function ClientBets:InitiateTrade()
 	if addon.isBookie then return end
+	if not self.activeBet then return end
 
 	target = UnitName("target")
-	if target ~= self.activeBet.bookie then addon:Debug("Not targeting your active bookie!"); return end
-
-	--wait for money to be traded 
-	addon:Debug("Trade opened with your bookie.")
+	if not target or target ~= self.activeBet.bookie then addon:Debug("Not targeting your active bookie!"); return end
+	
+	addon:Debug("Trade opened with your bookie: "..target)
 	self.tradeOpen = true
 	self.tradeAmount = 0
 end
@@ -139,17 +160,34 @@ function ClientBets:SetTradeAmount()
 	if addon.isBookie then return end
 	if not self.tradeOpen then addon:Debug("Client is not correctly open for trades."); return end
 
-    self.tradeAmount = GetPlayerTradeMoney()
+	local status = self.activeBet.entrants[addon.playerName].status
+	if status == addon.clientStatus.WaitingForTrade then
+    	self.tradeAmount = GetPlayerTradeMoney()
+    elseif status == addon.clientStatus.WaitingForPayout then
+    	self.tradeAmount = GetTargetTradeMoney()
+    else
+    	addon:Debug("Client is not in correct status: "..status);
+    	self.tradeOpen = false
+    end
 end
 
 function ClientBets:HandleTrade()
 	if addon.isBookie then return end
 	if not self.tradeOpen then addon:Debug("Client is not correctly open for trades."); return end
-	if self.tradeAmount == 0 then addon:Debug("Client traded 0g."); return end
+	if self.tradeAmount == nil or self.tradeAmount == 0 then addon:Debug("Client traded 0g."); return end
 
-	addon:Debug("Client sending trade amount: "..addon:FormatMoney(self.tradeAmount))
-	msg = { addon.playerName, self.tradeAmount }
-	addon:SendCommand("send_client_trade", msg)
+	local status = self.activeBet.entrants[addon.playerName].status
+	if status == addon.clientStatus.WaitingForTrade then
+    	addon:Debug("Client sending trade amount: "..addon:FormatMoney(self.tradeAmount))
+		local msg = { addon.playerName, self.tradeAmount }
+		addon:SendCommand("send_client_trade", msg)
+
+    elseif status == addon.clientStatus.WaitingForPayout then
+    	local msg = { addon.playerName, self.tradeAmount }
+		addon:SendCommand("send_client_payout_confirm", msg)
+    end
+
+    addon:GUIRefresh_ClientWaiting()
 end
 
 function ClientBets:FinalizeTrade()
@@ -166,8 +204,7 @@ function ClientBets:ReceiveCancelledBet(data)
 	if bookie ~= self.activeBet.bookie then return end
 
 	addon:Debug("Bookie cancelled our bet. Returning to lobby.")
-	self:GetAvailableBets()
-	addon:GUIRefresh_Lobby()
+	self:QuitBet()
 end
 
 function ClientBets:GetBookie()
@@ -178,6 +215,11 @@ end
 function ClientBets:GetActiveWager()
 	if not self.activeBet.entrants[addon.playerName].wager then return "TBD" end
 	return self.activeBet.entrants[addon.playerName].wager
+end
+
+function ClientBets:GetChoiceIndex()
+	if not self.activeBet.entrants[addon.playerName].choice then return "TBD" end
+	return self.activeBet.entrants[addon.playerName].choice
 end
 
 function ClientBets:GetChoiceText()
