@@ -23,7 +23,7 @@ local FrameDefaults = {
 	},
 	bookie_create = {
 		widget = function() return addon:GetTabBookieCreate() end,
-		height = 300,
+		height = 210,
 	},
 	bookie_status = {
 		widget = function() return addon:GetTabBookieStatus() end,
@@ -145,8 +145,6 @@ function Bookie:MDB_GetTabLobby()
 	bookieButton:SetCallback("OnClick", 
 		function() 
 			addon:GUIRefresh_BookieCreate()
-			--self:SetFrameDefault("bookie_create")
-			--addon:GUIRefresh_Active()
 		end )
 
 	horzLine = AG:Create("Heading")
@@ -172,7 +170,6 @@ function Bookie:MDB_GetTabLobby()
 	for idx=1, #ClientBets.availableBets do
 		bet = ClientBets.availableBets[idx]
 
-		--DEBUG fill lobby join list
 		fillCount = 1
 		--if addon.debug then fillCount = 20 end
 
@@ -247,8 +244,8 @@ function Bookie:GetTabBookieCreate()
 	header:AddChild(headerLabel)
 
 	local dueler1Name, dueler2Name, rake
-	local minbet = 1
-	local maxbet = 1000
+	local minbet = 0
+	local maxbet = math.huge
 	local startButton
 
 	if addon.debug then dueler1Name, dueler2Name = "Lootch", "Deulbookie" end
@@ -284,8 +281,8 @@ function Bookie:GetTabBookieCreate()
 		end)
 	duelerContainer:AddChild(dueler2Editbox)
 
-	--TODO callback to verify user name is a real player, when value changed
-
+	--TODO removing min/max bet for now. The data format is still there if we want to allow a bookie to set this
+	--[[
 	betsContainer = AG:Create("SimpleGroup")
 	betsContainer:SetFullWidth(true)
 	betsContainer:SetLayout("Flow")
@@ -316,7 +313,8 @@ function Bookie:GetTabBookieCreate()
 			createBetStartButton:SetDisabled(not self:ValidBetParams(dueler1Name, dueler2Name, minbet, maxbet, rake))
 		end)
 	betsContainer:AddChild(maxbetEditbox)
-
+	--]]
+	
 	rakeContainer = AG:Create("SimpleGroup")
 	rakeContainer:SetFullWidth(true)
 	rakeContainer:SetLayout("Flow")
@@ -362,20 +360,13 @@ function Bookie:GetTabBookieCreate()
 		function() 
 			BookieBets:CreateBet(dueler1Name, dueler2Name, minbet, maxbet, rake) 
 			self:GUIRefresh_BookieStatus()
-			--self:SetActiveTab("bookie_status")
-			--addon:GUIRefresh_Active()
 		end )
 
 	cancelBetButton = AG:Create("Button")
 	footer:AddChild(cancelBetButton)
 	cancelBetButton:SetText("Cancel")
 	cancelBetButton:SetRelativeWidth(0.4)
-	cancelBetButton:SetCallback("OnClick", 
-		function() 
-			self:GUIRefresh_Lobby()
-			--self:SetActiveTab("create_lobby")
-			--addon:GUIRefresh_Active()
-		end )
+	cancelBetButton:SetCallback("OnClick", function() self:GUIRefresh_Lobby() end )
 
 	return returnGroup
 end
@@ -426,7 +417,6 @@ function Bookie:GetControlButtons(status)
 		entrantsPaid = BookieBets:AllEntrantsPaid()
 		returnButton:SetDisabled(not entrantsPaid)
 	end
-
 	
 	return controlBetsPanel
 end
@@ -485,11 +475,9 @@ function Bookie:GetTabBookieStatus()
 	dueler2Label:SetRelativeWidth(0.43)
 	titleGroup:AddChild(dueler2Label)
 
-
 	local horzline5 = AG:Create("Heading")
 	horzline5:SetRelativeWidth(1)
 	body:AddChild(horzline5)
-
 
 	headerPanel = AG:Create("SimpleGroup")
 	headerPanel:SetLayout("Flow")
@@ -768,7 +756,6 @@ function Bookie:GetTabClientWaiting()
 	local vslabel = AG:Create("Label")
 	vslabel:SetText("VS")
 	vslabel:SetJustifyH("CENTER")
-	--vslabel:SetFontObject(BookieFontDuelerChoiceSm)
 	titleGroup:AddChild(vslabel)
 
 	local dueler2Label = AG:Create("Label")
@@ -828,11 +815,9 @@ function Bookie:GetTabClientWaiting()
 	
 	local wagerLabel = AG:Create("Label")
 	wagerLabel:SetText("WAGER")
-	--wagerLabel:SetJustifyH("CENTER")
 	wagerContainer:AddChild(wagerLabel)
 	local wagerMoneyLabel = AG:Create("Label")
 	wagerMoneyLabel:SetText(addon:FormatMoney(ClientBets:GetActiveWager()))
-	--wagerMoneyLabel:SetJustifyH("CENTER")
 	wagerContainer:AddChild(wagerMoneyLabel)
 
 	local payoutContainer = AG:Create("SimpleGroup")
@@ -843,10 +828,8 @@ function Bookie:GetTabClientWaiting()
 	local payoutLabel = AG:Create("Label")
 	payoutContainer:AddChild(payoutLabel)
 	payoutLabel:SetText("PAYOUT")
-	--payoutLabel:SetJustifyH("CENTER")
 	local payoutMoneyLabel = AG:Create("Label")
 	payoutMoneyLabel:SetText(addon:FormatMoney(ClientBets:GetPayout()))
-	--payoutMoneyLabel:SetJustifyH("CENTER")
 	payoutContainer:AddChild(payoutMoneyLabel)
 
 	local horzLine2 = AG:Create("Heading")
@@ -867,17 +850,14 @@ function Bookie:GetTabClientWaiting()
 	local statusLabel = AG:Create("Label")
 	statusLabelContainer:AddChild(statusLabel)
 	statusLabel:SetRelativeWidth(0.35)
-	--statusLabel:SetFontObject(BookieFontDuelerChoiceSm)
 	statusLabel:SetText("STATUS:")
 
 	local statusLabel2 = AG:Create("Label")
 	statusLabelContainer:AddChild(statusLabel2)
 	statusLabel2:SetRelativeWidth(0.65)
-	--statusLabel2:SetFontObject(BookieFontDuelerChoiceSm)
 
 	statusLabel2:SetText(ClientStatusData[status].text)
 	statusLabel2:SetColor(unpack(ClientStatusData[status].color))
-
 
 	local horzLine3 = AG:Create("Heading")
 	horzLine3:SetRelativeWidth(1)
@@ -904,7 +884,6 @@ function Bookie:GetTabClientWaiting()
 	--		buttonDisable = true
 	--	end
 	--end
-	
 
 	local cancelButton = AG:Create("Button")
 	footer:AddChild(cancelButton)
@@ -923,14 +902,6 @@ function Bookie:DrawActiveTabGroup(container)
 	activeTab:SetFullWidth(true)
 	activeTab:SetFullHeight(true)
 end
-
---TODO remove
---function Bookie:SelectGroup(container, event, group)
---	container:ReleaseChildren()
---	if group == "tab1" then
---		self:DrawActiveTabGroup(container)
---	end
---end
 
 function Bookie:GUIInit()
 	frame = AG:Create("Frame")

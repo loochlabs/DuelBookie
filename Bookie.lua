@@ -5,7 +5,7 @@ if BookieSave == nil then BookieSave = {} end
 BookieSave.Bookie = Bookie
 
 Bookie.playerName = nil
-Bookie.debug = true
+Bookie.debug = false
 Bookie.autoAcceptTrades = false
 Bookie.isBookie = false
 
@@ -92,23 +92,6 @@ event_handlers = {
 					addon.ClientBets:SetTradeAmount()	
 				end
 			end
-
-			--[[
-			if args[1] == 1 and args[2] == 0 then
-				addon:Debug("one player accept")
-				if addon.isBookie then
-					addon.BookieBets:SetTradeAmount()	
-				else
-					addon.ClientBets:SetTradeAmount()	
-				end
-			elseif args[1] == 1 and args[2] == 1 then
-				addon:Debug("both player accept")
-				if addon.isBookie then
-					addon.BookieBets:HandleTrade()	
-				else
-					addon.ClientBets:HandleTrade()	
-				end
-			end--]]
 		end,
 	},
 	TRADE_REQUEST_CANCEL = {
@@ -261,9 +244,6 @@ function Bookie:SendCommand(command, data)
 	elseif IsInGroup() then 
 		addon:Debug("Sending PARTY comm: "..command)
 		self:SendCommMessage("Bookie", toSend, "PARTY")
-	--elseif IsInGuild() then
-	--	addon:Debug("Sending GUILD comm: "..command)
-	--	self:SendCommMessage("Bookie", toSend, "GUILD")
 	end
 end
 

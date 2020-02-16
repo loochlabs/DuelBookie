@@ -5,9 +5,6 @@
 local _,addon = ...
 BookieBets = BookieSave.Bookie.BookieBets or addon:NewModule("BookieBets", "AceEvent-3.0")
 
---TODO change this to 20000 to match money formatting
---BookieBets.bookiePool = 2 --2g put up for default pool
-
 function BookieBets:Save()
 	BookieSave.Bookie.isBookie = addon.isBookie
 	BookieSave.Bookie.BookieBets.bet = self.bet
@@ -321,8 +318,7 @@ function BookieBets:AllEntrantsPaid()
 	allpaid = true
 
 	for name, info in pairs(self.bet.entrants) do
-		allpaid = info.status ~= addon.clientStatus.WaitingForPayout-- or info.status == addon.clientStatus.ConclusionLost 
-
+		allpaid = info.status ~= addon.clientStatus.WaitingForPayout
 		if not allpaid then break end
 	end
 
