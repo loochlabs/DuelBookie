@@ -15,7 +15,7 @@ addon.ClientBets = ClientBets
 addon.BookieBets = BookieBets
 
 local FrameDefaults = {
-	width = 260,
+	width = 270,
 	height = 330,
 	lobby = {
 		widget = function() return addon:MDB_GetTabLobby() end,
@@ -27,7 +27,8 @@ local FrameDefaults = {
 	},
 	bookie_status = {
 		widget = function() return addon:GetTabBookieStatus() end,
-		height = 380,
+		height = 390,
+		width = 300
 	},
 	client_joined = {
 		widget = function() return addon:GetTabClientJoined() end,
@@ -35,7 +36,10 @@ local FrameDefaults = {
 	},
 	client_waiting = {
 		widget = function() return addon:GetTabClientWaiting() end,
-		height = 260,
+		height = 240,
+	},
+	add_entrant = {
+		height = 260
 	},
 }
 
@@ -53,6 +57,8 @@ local DuelerColors = {
 	[1] = { (143/255), (154/255), (209/255) },
 	[2] = { (216/255), (89/255), (38/255) },
 }
+
+local MoneyColor = { 1.0, 0.82, 0 }
 
 local ClientStatusData = {
 	[addon.clientStatus.WaitingForTrade] = {
@@ -327,7 +333,7 @@ function Bookie:GetTabBookieCreate()
 	}
 
 	rakeOptionOrder = { "rake0", "rake5", "rake10", "rake20" }
-	rake = self:GetRake(rakeOptions.rake0)
+	local rake = self:GetRake(rakeOptions.rake0)
 
 	rakeDropdown = AG:Create("Dropdown")
 	rakeDropdown:SetLabel("Percentage of gold taken from prize pool:")
@@ -379,7 +385,7 @@ function Bookie:GetControlButtons(status)
 		addon:Debug("Get control buttons: "..status)
 		closeBetsButton = AG:Create("Button")
 		controlBetsPanel:AddChild(closeBetsButton)
-		closeBetsButton:SetFullWidth(true)
+		closeBetsButton:SetRelativeWidth(1)
 		closeBetsButton:SetDisabled(BookieBets:GetEntrantsCount() == 0)
 		closeBetsButton:SetText("Close Bets")
 		closeBetsButton:SetCallback("OnClick", 
@@ -408,7 +414,7 @@ function Bookie:GetControlButtons(status)
 	elseif status == addon.betStatus.Complete or status == addon.betStatus.PendingPayout then
 		returnButton = AG:Create("Button")
 		controlBetsPanel:AddChild(returnButton)
-		returnButton:SetFullWidth(true)
+		returnButton:SetRelativeWidth(1)
 		returnButton:SetText("Return to Lobby")
 		returnButton:SetCallback("OnClick", function() BookieBets:EndCurrentBet() end )
 
@@ -420,7 +426,93 @@ function Bookie:GetControlButtons(status)
 	return controlBetsPanel
 end
 
+local function ValidWager(wager)
+	return string.match(wager, '%D') == nil and tonumber(wager) > 0
+end
+
+local function ValidName(name)
+	return string.match(name, '%w') ~= nil
+end
+
+local function CreateAddEntrantFrame()
+	addon:Debug("Adding entrant")
+
+	if not addon.isBookie then addon:Debug("Error: not a bookie, cannot add player") return end
+	if not BookieBets.bet then addon:Debug("Error: no active bet to add player") return end
+
+	local bet = BookieBets.bet
+
+	local frame = AG:Create("Frame")
+	frame:SetWidth(FrameDefaults.width)
+	frame:SetHeight(FrameDefaults.add_entrant.height)
+	frame:SetTitle("Add New Entrant")
+
+	local body = AG:Create("SimpleGroup")
+	frame:AddChild(body)
+	body:SetFullWidth(true)
+	body:SetFullHeight(true)
+	body:SetLayout("List")
+
+	local entrantName = ""
+	local nameEditBox = AG:Create("EditBox")
+	body:AddChild(nameEditBox)
+	nameEditBox:SetFullWidth(true)
+	nameEditBox:SetLabel("Entrant Name")
+	nameEditBox:SetText(entrantName)
+	nameEditBox:SetMaxLetters(10)
+	nameEditBox:DisableButton(true)
+
+	--TODO three edit boxes for gold, silver, copper
+	local wager = 1
+	wagerEditBox = AG:Create("EditBox")
+	body:AddChild(wagerEditBox)
+	wagerEditBox:SetLabel("Bet Amount (gold)")
+	wagerEditBox:SetText(wager)
+	wagerEditBox:SetRelativeWidth(1)
+	wagerEditBox:SetMaxLetters(5)
+	wagerEditBox:DisableButton(true)
+
+	--dropdown for two choices
+	local choice = 1
+	choiceDropdown = AG:Create("Dropdown")
+	body:AddChild(choiceDropdown)
+	choiceDropdown:SetLabel("Select Choice")
+	choiceDropdown:SetFullWidth(true)
+	choiceDropdown:SetList(bet.duelers)
+	choiceDropdown:SetValue(choice)
+	choiceDropdown:SetCallback("OnValueChanged", 
+		function(widget, event, key) 
+			addon:Debug("dropdown choice: "..key)
+			choice = key
+		end)
+
+	local submitButton = AG:Create("Button")
+	body:AddChild(submitButton)
+	submitButton:SetText("Submit")
+	submitButton:SetFullWidth(true)
+	submitButton:SetDisabled(not (ValidWager(wager) and ValidName(entrantName)) )
+	submitButton:SetCallback("OnClick", function() 
+		BookieBets:ReceiveClientJoinManual(entrantName, tonumber(wager)*10000, choice) --TODO temp 10000x until 3 editboxes in place
+		frame:Hide()
+	end)
+
+	nameEditBox:SetCallback("OnTextChanged", 
+		function(widget, event, text) 
+			entrantName = text 
+			submitButton:SetDisabled(not (ValidWager(wager) and ValidName(entrantName)) )
+		end)
+
+	wagerEditBox:SetCallback("OnTextChanged", 
+		function(widget, event, text) 
+			wager = text
+			submitButton:SetDisabled(not (ValidWager(wager) and ValidName(entrantName)) )
+		end)
+
+end
+
 function Bookie:GetTabBookieStatus()
+	local bet = BookieBets.bet
+
 	returnGroup = AG:Create("SimpleGroup")
 	local body = AG:Create("SimpleGroup")
 	body:SetFullWidth(true)
@@ -440,39 +532,39 @@ function Bookie:GetTabBookieStatus()
 	horzline4:SetRelativeWidth(1)
 	body:AddChild(horzline4)
 
-	local bet = BookieBets.bet
 	--dueler1, dueler2, wager
 	local titleContainer = AG:Create("SimpleGroup")
 	body:AddChild(titleContainer)
 	titleContainer:SetFullWidth(true)
 	titleContainer:SetLayout("Flow")
+
 	local titleGroup = AG:Create("SimpleGroup")
 	titleContainer:AddChild(titleGroup)
 	titleGroup:SetLayout("Flow")
 	titleGroup:SetFullWidth(true)
 
 	local dueler1Label = AG:Create("Label")
+	titleGroup:AddChild(dueler1Label)
 	dueler1Label:SetText(bet.duelers[1])
 	dueler1Label:SetJustifyH("RIGHT")
 	dueler1Label:SetFontObject(BookieFontDuelerChoiceSm)
 	dueler1Label:SetColor(unpack(DuelerColors[1]))
 	dueler1Label:SetRelativeWidth(0.43)
-	titleGroup:AddChild(dueler1Label)
 
 	local vslabel = AG:Create("Label")
+	titleGroup:AddChild(vslabel)
 	vslabel:SetText("vs")
 	vslabel:SetJustifyH("CENTER")
 	vslabel:SetFontObject(BookieFontDuelerChoiceSm)
 	vslabel:SetRelativeWidth(0.14)
-	titleGroup:AddChild(vslabel)
 
 	local dueler2Label = AG:Create("Label")
+	titleGroup:AddChild(dueler2Label)
 	dueler2Label:SetText(bet.duelers[2])
 	dueler2Label:SetJustifyH("LEFT")
 	dueler2Label:SetFontObject(BookieFontDuelerChoiceSm)
 	dueler2Label:SetColor(unpack(DuelerColors[2]))
 	dueler2Label:SetRelativeWidth(0.43)
-	titleGroup:AddChild(dueler2Label)
 
 	local horzline5 = AG:Create("Heading")
 	horzline5:SetRelativeWidth(1)
@@ -489,13 +581,28 @@ function Bookie:GetTabBookieStatus()
 	headerPanelLeft:SetLayout("List")
 
 	prizepoolLabel = AG:Create("Label")
-	prizepoolLabel:SetText("PURSE")
 	headerPanelLeft:AddChild(prizepoolLabel)
+	prizepoolLabel:SetText("PURSE")
 
-	local totalPrizePool
-	prizepoolMoneyLabel = AG:Create("Label")
-	prizepoolMoneyLabel:SetText(addon:FormatMoney(BookieBets:GetPrizePoolRaked()))
+	local prizepoolMoneyLabel = AG:Create("Label")
 	headerPanelLeft:AddChild(prizepoolMoneyLabel)
+	prizepoolMoneyLabel:SetText(addon:FormatMoney(BookieBets:GetPrizePoolRaked()))
+	prizepoolMoneyLabel:SetColor(unpack(MoneyColor))
+
+	local headerPanelRight = AG:Create("SimpleGroup")
+	headerPanel:AddChild(headerPanelRight)
+	headerPanelRight:SetRelativeWidth(0.35)
+	headerPanelRight:SetLayout("List")
+
+	local rakeLabel = AG:Create("Label")
+	headerPanelRight:AddChild(rakeLabel)
+	rakeLabel:SetText("RAKE")
+
+	local rakedMoney = BookieBets:GetRakeTotal()
+	rakeMoneyLabel = AG:Create("Label")
+	headerPanelRight:AddChild(rakeMoneyLabel)
+	rakeMoneyLabel:SetText(addon:FormatMoney(rakedMoney))
+	rakeMoneyLabel:SetColor(unpack(MoneyColor))
 
 	local headerPanelCenter = AG:Create("SimpleGroup")
 	headerPanel:AddChild(headerPanelCenter)
@@ -503,6 +610,7 @@ function Bookie:GetTabBookieStatus()
 	headerPanelCenter:SetLayout("List")
 
 	local odds = BookieBets:CalculateOdds()
+
 	oddsLabel = AG:Create("Label")
 	headerPanelCenter:AddChild(oddsLabel)
 	oddsLabel:SetText("ODDS")
@@ -512,13 +620,13 @@ function Bookie:GetTabBookieStatus()
 	oddsContainer:SetLayout("Flow")
 	oddsContainer:SetRelativeWidth(1)
 
-	addon:Debug(odds[1]..":"..odds[2])
-
 	local dueler1OddsLabel = AG:Create("Label")
 	oddsContainer:AddChild(dueler1OddsLabel)
-	dueler1OddsLabel:SetText(string.format("%.1f",odds[1]))
+
+	
 	dueler1OddsLabel:SetColor(unpack(DuelerColors[1]))
 	dueler1OddsLabel:SetRelativeWidth(0.35)
+	dueler1OddsLabel:SetJustifyH("RIGHT")
 
 	local colonLabel = AG:Create("Label")
 	oddsContainer:AddChild(colonLabel)
@@ -527,24 +635,21 @@ function Bookie:GetTabBookieStatus()
 
 	local dueler2OddsLabel = AG:Create("Label")
 	oddsContainer:AddChild(dueler2OddsLabel)
-	dueler2OddsLabel:SetText(string.format("%.1f",odds[2]))
 	dueler2OddsLabel:SetColor(unpack(DuelerColors[2]))
 	dueler2OddsLabel:SetRelativeWidth(0.35)
-	
-	local headerPanelRight = AG:Create("SimpleGroup")
-	headerPanel:AddChild(headerPanelRight)
-	headerPanelRight:SetRelativeWidth(0.35)
-	headerPanelRight:SetLayout("List")
 
-	rakeLabel = AG:Create("Label")
-	headerPanelRight:AddChild(rakeLabel)
-	rakeLabel:SetText("RAKE")
+	if tonumber(odds[1]) > 10 then
+		dueler1OddsLabel:SetText(string.format("%.0f",odds[1]))
+	else
+		dueler1OddsLabel:SetText(string.format("%.1f",odds[1]))
+	end
 
-	local rakedMoney = BookieBets:GetRakeTotal()
-	rakeMoneyLabel = AG:Create("Label")
-	headerPanelRight:AddChild(rakeMoneyLabel)
-	rakeMoneyLabel:SetText(addon:FormatMoney(rakedMoney))
-	
+	if tonumber(odds[2]) > 10 then
+		dueler2OddsLabel:SetText(string.format("%.0f",odds[2]))
+	else
+		dueler2OddsLabel:SetText(string.format("%.1f",odds[2]))
+	end
+
 	local horzline3 = AG:Create("Heading")
 	horzline3:SetRelativeWidth(1)
 	body:AddChild(horzline3)
@@ -554,10 +659,22 @@ function Bookie:GetTabBookieStatus()
 	bottomPanel:SetFullWidth(true)
 	bottomPanel:SetLayout("Flow")
 
-	leftLabel = AG:Create("Label")
-	bottomPanel:AddChild(leftLabel)
+	local entrantsContainer = AG:Create("SimpleGroup")
+	bottomPanel:AddChild(entrantsContainer)
+	entrantsContainer:SetFullWidth(true)
+	entrantsContainer:SetLayout("Flow")
+
+	local leftLabel = AG:Create("Label")
+	entrantsContainer:AddChild(leftLabel)
 	leftLabel:SetText("ENTRANTS")
-	leftLabel:SetFullWidth(true)
+	leftLabel:SetRelativeWidth(0.8)
+
+	local addButton = AG:Create("Button")
+	entrantsContainer:AddChild(addButton)
+	addButton:SetText("+")
+	addButton:SetRelativeWidth(0.2)
+	addButton:SetDisabled(bet.status ~= addon.betStatus.Open)
+	addButton:SetCallback("OnClick", function() CreateAddEntrantFrame() end)
 
 	horzlineLeft = AG:Create("Heading")
 	horzlineLeft:SetRelativeWidth(1)
@@ -581,12 +698,13 @@ function Bookie:GetTabBookieStatus()
 
 		for i=1, fillCount do
 			local entry = AG:Create("SimpleGroup")
+			scroll:AddChild(entry)
 			entry:SetFullWidth(true)
 			entry:SetLayout("Flow")
-			scroll:AddChild(entry)
+			
 			local entryName = AG:Create("Label")
 			entryName:SetText(name)
-			entryName:SetRelativeWidth(0.4)
+			entryName:SetRelativeWidth(0.31)
 			entry:AddChild(entryName)
 
 			local status = data.status
@@ -594,11 +712,25 @@ function Bookie:GetTabBookieStatus()
 			entry:AddChild(entryStatus)
 			entryStatus:SetText(BookieStatusData[status].text)
 			entryStatus:SetColor(unpack(BookieStatusData[status].color))
-			entryStatus:SetRelativeWidth(0.45)
+			entryStatus:SetRelativeWidth(0.39)
+			entryStatus:SetJustifyH("CENTER")
 
 			local entryWager = AG:Create("Label")
-			entryWager:SetRelativeWidth(0.15)
 			entry:AddChild(entryWager)
+			entryWager:SetRelativeWidth(0.10)
+			entryWager:SetColor(unpack(MoneyColor))
+			entryWager:SetJustifyH("CENTER")
+
+			local removeButton = AG:Create("Button")
+			entry:AddChild(removeButton)
+			removeButton:SetRelativeWidth(0.15)
+			removeButton:SetText("X")
+			removeButton:SetDisabled(bet.status == addon.betStatus.BetsClosed)
+			removeButton.entrant = name
+			removeButton:SetCallback("OnClick", function() 
+				BookieBets:RemoveEntrant(removeButton.entrant) 
+				addon:GUIRefresh_BookieStatus()
+			end)
 
 			moneyText = ""
 			if data.wager and data.wager > 0 then 
@@ -613,8 +745,9 @@ function Bookie:GetTabBookieStatus()
 
 			--resize for payout status
 			if status >= addon.clientStatus.WaitingForResults then
-				entryStatus:SetRelativeWidth(0.22)
-				entryWager:SetRelativeWidth(0.38)
+				entryStatus:SetRelativeWidth(0.17)
+				entryWager:SetRelativeWidth(0.32)
+				removeButton:SetRelativeWidth(0.15)
 			end
 		end
 	end
@@ -636,7 +769,7 @@ end
 
 function Bookie:GetTabClientJoined()
 	addon:Debug("Create clientjoined tab")
-	returnGroup = AG:Create("SimpleGroup")
+	local returnGroup = AG:Create("SimpleGroup")
 
 	local bet = ClientBets.activeBet
 
@@ -650,7 +783,7 @@ function Bookie:GetTabClientJoined()
 	local cancelButton = AG:Create("Button")
 	body:AddChild(cancelButton)
 	cancelButton:SetText("Return to Lobby")
-	cancelButton:SetRelativeWidth(1)
+	cancelButton:SetFullWidth(true)
 	cancelButton:SetCallback("OnClick", function() ClientBets:QuitBet() end) 
 
 	local horzline = AG:Create("Heading")
@@ -739,6 +872,41 @@ function Bookie:GetTabClientWaiting()
 
 	--dueler1, dueler2, wager
 	local titleContainer = AG:Create("SimpleGroup")
+	body:AddChild(titleContainer)
+	titleContainer:SetFullWidth(true)
+	titleContainer:SetLayout("Flow")
+
+	local titleGroup = AG:Create("SimpleGroup")
+	titleContainer:AddChild(titleGroup)
+	titleGroup:SetLayout("Flow")
+	titleGroup:SetFullWidth(true)
+
+	local dueler1Label = AG:Create("Label")
+	titleGroup:AddChild(dueler1Label)
+	dueler1Label:SetText(bet.duelers[1])
+	dueler1Label:SetJustifyH("RIGHT")
+	dueler1Label:SetFontObject(BookieFontDuelerChoiceSm)
+	dueler1Label:SetColor(unpack(DuelerColors[1]))
+	dueler1Label:SetRelativeWidth(0.43)
+
+	local vslabel = AG:Create("Label")
+	titleGroup:AddChild(vslabel)
+	vslabel:SetText("vs")
+	vslabel:SetJustifyH("CENTER")
+	vslabel:SetFontObject(BookieFontDuelerChoiceSm)
+	vslabel:SetRelativeWidth(0.14)
+
+	local dueler2Label = AG:Create("Label")
+	titleGroup:AddChild(dueler2Label)
+	dueler2Label:SetText(bet.duelers[2])
+	dueler2Label:SetJustifyH("LEFT")
+	dueler2Label:SetFontObject(BookieFontDuelerChoiceSm)
+	dueler2Label:SetColor(unpack(DuelerColors[2]))
+	dueler2Label:SetRelativeWidth(0.43)
+
+	--dueler1, dueler2, wager
+	--[[
+	local titleContainer = AG:Create("SimpleGroup")
 	titleContainer:SetFullWidth(true)
 	titleContainer:SetLayout("Flow")
 	local titleGroup = AG:Create("SimpleGroup")
@@ -766,6 +934,7 @@ function Bookie:GetTabClientWaiting()
 	titleGroup:AddChild(dueler2Label)
 
 	body:AddChild(titleContainer)
+	--]]
 
 	local horzLine1 = AG:Create("Heading")
 	horzLine1:SetRelativeWidth(1)

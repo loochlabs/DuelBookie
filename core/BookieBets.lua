@@ -42,6 +42,7 @@ function BookieBets:CreateBet(dueler1, dueler2, min, max, rake)
 		rake = rake,
 		bookie = addon.playerName,
 		pool = { 0,0 },
+		finalpool = { 0,0 },
 		status = addon.betStatus.Open,
 	}
 
@@ -119,7 +120,7 @@ function BookieBets:ReceiveChoice(data)
 	if not self.bet then addon:Debug("Error! bookie was not initialized correctly."); return end
 	if not self.bet.entrants[client] then addon:Debug("Error! Client does not exist as entrant."); return end
 
-	entrant = self.bet.entrants[client]
+	local entrant = self.bet.entrants[client]
 	entrant.wager = 0
 	entrant.status = addon.clientStatus.WaitingForTrade
 	entrant.choice = choice
@@ -150,6 +151,9 @@ end
 function BookieBets:ReceieveClientPayoutConfirm(data)
 	if not addon.isBookie then return end
 	if self.bet.status ~= addon.betStatus.PendingPayout then addon:Debug("Bookie is not ready for payouts"); return end
+
+	--TODO fix this jank. this is from receiving a client trade confirmation when our bookie already handled it. 
+	if self.tradeOpen then addon:Debug("Bookie already open for trades.") return end
 
 	local clientName, payout = unpack(data)
 	local client = self.bet.entrants[clientName]
@@ -224,15 +228,43 @@ function BookieBets:FinalizeTrade()
 	self.tradeOpen = false
 end
 
+function BookieBets:ReceiveClientJoinManual(client, wager, choice)
+	if not addon.isBookie then return end
+	if not self.bet then addon:Debug("Error! bookie was not initialized correctly."); return end
+	if not client or client == "" then addon:Debug("Error! empty client name added."); return end
+
+ 	addon:Debug("Submitting new entrant to active bet.") 
+
+	self:ReceiveClientJoin( {addon.playerName, client} ) 
+	self:ReceiveChoice( {addon.playerName, client, choice} )
+	self:ReceieveClientTrade( {client, wager} )
+	
+end
+
+function BookieBets:RemoveEntrant(name)
+	if not addon.isBookie then return end
+	if not self.bet then return end
+
+	local entrant = self.bet.entrants[name]
+
+	if not entrant then addon:Debug("Tried to remove entrant that does not exist.") return end
+
+	self.bet.pool[entrant.choice] = self.bet.pool[entrant.choice] - entrant.wager
+	self.bet.entrants[name] = nil
+
+ 	msg = { addon.playerName, client }
+ 	addon:SendCommand("send_remove_bet", msg)
+end
+
 function BookieBets:RemoveEntrants(status)
 	local found = false
 	local entrants = self.bet.entrants
 	for name,info in pairs(entrants) do
 		if status == info.status then
-			addon:Debug("Bookie purging "..name)
-			info.status = addon.clientStatus.Inactive
-			self:UpdateClient(name)
-			entrants[name] = nil
+			self:RemoveEntrant(name)
+			--info.status = addon.clientStatus.Inactive
+			--self:UpdateClient(name)
+			--entrants[name] = nil
 		end
 	end
 end
@@ -245,12 +277,12 @@ function BookieBets:CloseBets()
 	self:RemoveEntrants(addon.clientStatus.WaitingForWager)
 	self:RemoveEntrants(addon.clientStatus.WaitingForTrade)
 
-	odds = self:CalculateOdds()
-
 	--add 1g if a prize pool is empty
-	self.bet.pool[1] = max(10000, self.bet.pool[1])
-	self.bet.pool[2] = max(10000, self.bet.pool[2])
+	self.bet.finalpool[1] = max(10000, self.bet.pool[1])
+	self.bet.finalpool[2] = max(10000, self.bet.pool[2])
 	self.bet.status = addon.betStatus.BetsClosed
+
+	local odds = self:CalculateOdds()
 	
 	--update entrants' payouts
 	for name, info in pairs(self.bet.entrants) do
@@ -277,9 +309,18 @@ end
 
 function BookieBets:CalculateOdds()
 	local rake = 1 - self.bet.rake
+
 	local pool1 = self.bet.pool[1] * rake
 	local pool2 = self.bet.pool[2] * rake
+
+	if self.bet.status >= addon.betStatus.BetsClosed then
+		pool1 = self.bet.finalpool[1] * rake
+		pool2 = self.bet.finalpool[2] * rake
+	end
+
 	local totalPool = pool1 + pool2
+
+	--TODO redundant bookie pool
 	local bookiePool = floor(10000 * rake)
 	pool1 = max(pool1,bookiePool) 
 	pool2 = max(pool2,bookiePool)
@@ -299,13 +340,12 @@ function BookieBets:FinalizeDuelWinner(choice)
 			local playerPayout = info.choice == choice
 			if playerPayout then
 				info.status = addon.clientStatus.WaitingForPayout
+				self:UpdateClient(name)
 			else
 				info.status = addon.clientStatus.ConclusionLost 
+				self:UpdateClient(name)
+				self:RemoveEntrant(name)
 			end
-			self:UpdateClient(name)
-
-		elseif info.status == addon.clientStatus.ConclusionLost then
-			self:RemoveEntrants(addon.clientStatus.ConclusionLost)
 		end
 	end
 
@@ -348,7 +388,11 @@ function BookieBets:GetEntrantsCount()
 end
 
 function BookieBets:GetPrizePoolRaw()
-	return (self.bet.pool[1] + self.bet.pool[2]) 
+	if self.bet.status >= addon.betStatus.BetsClosed then
+		return (self.bet.finalpool[1] + self.bet.finalpool[2])
+	else 
+		return (self.bet.pool[1] + self.bet.pool[2]) 
+	end
 end
 
 function BookieBets:GetPrizePoolRaked()

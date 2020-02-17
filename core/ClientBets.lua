@@ -11,7 +11,10 @@ ClientBets.tradeOpen = false
 
 local UpdateCallbacks = {
 	[addon.clientStatus.Inactive] = {
-		func = function() addon:GUIRefresh_Lobby() end,
+		func = function() 
+				ClientBets.activeBet = nil
+				addon:GUIRefresh_Lobby() 
+			end,
 		debug = "Client purged. Returning to Lobby",
 	},
 	[addon.clientStatus.WaitingForWager] = {
@@ -46,6 +49,7 @@ function ClientBets:ReceiveUpdate(data)
 	local bookie, client, bet = unpack(data)
 
 	if client ~= addon.playerName then addon:Debug("invalid client name update: ") return end
+	if not bet then return end
 	if not bet.entrants[client] then addon:Debug("Error! Client does not exist in bookie's active bet"); return end
 
 	self.activeBet = bet
@@ -127,8 +131,6 @@ function ClientBets:QuitBet()
 	self.activeBet = nil
 	self.availableBets = nil
 	self:GetAvailableBets()
-
-	
 	addon:GUIRefresh_Lobby()
 end
 
@@ -204,6 +206,19 @@ function ClientBets:ReceiveCancelledBet(data)
 	if bookie ~= self.activeBet.bookie then return end
 
 	addon:Debug("Bookie cancelled our bet. Returning to lobby.")
+	self:QuitBet()
+end
+
+function ClientBets:ReceiveRemovedFromBet(data)
+	if addon.isBookie then return end
+	if not self.activeBet then return end
+
+	bookie, client = unpack(data)
+
+	if client ~= addon.playerName then return end
+	if bookie ~= self.activeBet.bookie then return end
+
+	addon:Debug("Bookie removed your bet. Returning to lobby.")
 	self:QuitBet()
 end
 

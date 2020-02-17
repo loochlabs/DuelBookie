@@ -5,11 +5,9 @@ if BookieSave == nil then BookieSave = {} end
 BookieSave.Bookie = Bookie
 
 Bookie.playerName = nil
-Bookie.debug = false
+Bookie.debug = true
 Bookie.autoAcceptTrades = false
 Bookie.isBookie = false
-
-local syncTargets = {}
 
 Bookie.clientStatus = {
 	Inactive = 1,
@@ -125,7 +123,7 @@ event_handlers = {
 			if not addon.isBookie and not addon.ClientBets.activeBet then
 				addon.ClientBets:GetAvailableBets()	
 			elseif addon.isBookie and addon.BookieBets.bet then
-				local clients = Bookie:GetSyncTargetOptions()
+				local clients = addon:GetSyncGroupOptions()
 				for name,_ in pairs(clients) do
 					BookieBets:SendAvailableBet({name})
 				end
@@ -177,6 +175,9 @@ local comm_msgs = {
 	},
 	send_client_payout_confirm = {
 		callback = function(data) BookieBets:ReceieveClientPayoutConfirm(data) end
+	},
+	send_remove_bet = {
+		callback = function(data) ClientBets:ReceiveRemovedFromBet(data) end
 	},
 	cancel_bet = {
 		callback = function(data) ClientBets:ReceiveCancelledBet(data) end
@@ -267,7 +268,7 @@ function Bookie:OnCommReceived(prefix, serializedMsg, distri, sender)
 end
 
 function Bookie:Debug(msg, ...)
-	if self.debug then print(msg) end
+	if self.debug then print(string.format("%s%s", "MDB:", msg)) end
 end
 
 function Bookie:FormatMoney(money)
