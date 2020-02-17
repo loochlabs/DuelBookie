@@ -115,7 +115,7 @@ local BookieStatusData = {
 }
 
 function Bookie:ValidBetParams(dueler1, dueler2, minbet, maxbet, rake)
-	local validNames = dueler1 ~= nil and dueler2 ~= nil and dueler1 ~= dueler2
+	local validNames = dueler1 ~= nil and dueler2 ~= nil and dueler1 ~= "" and dueler2 ~= "" and dueler1 ~= dueler2 
  	return validNames and minbet and maxbet and rake and (tonumber(minbet) < tonumber(maxbet))
 end
 
@@ -231,7 +231,7 @@ function Bookie:GetRake(text)
 end
 
 function Bookie:GetTabBookieCreate()
-	returnGroup = AG:Create("SimpleGroup")
+	local returnGroup = AG:Create("SimpleGroup")
 	returnGroup:SetFullWidth(true)
 	returnGroup:SetFullHeight(true)
 
@@ -255,12 +255,12 @@ function Bookie:GetTabBookieCreate()
 
 	if addon.debug then dueler1Name, dueler2Name = "Lootch", "Deulbookie" end
 
-	duelerContainer = AG:Create("SimpleGroup")
+	local duelerContainer = AG:Create("SimpleGroup")
 	duelerContainer:SetFullWidth(true)
 	duelerContainer:SetLayout("Flow")
 	body:AddChild(duelerContainer)
 
-	dueler1Editbox = AG:Create("EditBox")
+	local dueler1Editbox = AG:Create("EditBox")
 	dueler1Editbox:SetLabel("Choice #1")
 	dueler1Editbox:SetText(dueler1Name)
 	dueler1Editbox:SetRelativeWidth(0.5)
@@ -273,7 +273,7 @@ function Bookie:GetTabBookieCreate()
 		end)
 	duelerContainer:AddChild(dueler1Editbox)
 
-	dueler2Editbox = AG:Create("EditBox")
+	local dueler2Editbox = AG:Create("EditBox")
 	dueler2Editbox:SetLabel("Choice #2")
 	dueler2Editbox:SetText(dueler2Name)
 	dueler2Editbox:SetRelativeWidth(0.5)
@@ -320,20 +320,20 @@ function Bookie:GetTabBookieCreate()
 	betsContainer:AddChild(maxbetEditbox)
 	--]]
 	
-	rakeContainer = AG:Create("SimpleGroup")
+	local rakeContainer = AG:Create("SimpleGroup")
 	rakeContainer:SetFullWidth(true)
 	rakeContainer:SetLayout("Flow")
 	body:AddChild(rakeContainer)
 
-	rakeOptions = {
+	local rakeOptions = {
 		rake0 = "0%",
 		rake5 = "5%",
 		rake10 = "10%",
 		rake20 = "25%",
 	}
 
-	rakeOptionOrder = { "rake0", "rake5", "rake10", "rake20" }
-	local rake = self:GetRake(rakeOptions.rake0)
+	local rakeOptionOrder = { "rake0", "rake5", "rake10", "rake20" }
+	rake = self:GetRake(rakeOptions.rake0)
 
 	rakeDropdown = AG:Create("Dropdown")
 	rakeDropdown:SetLabel("Percentage of gold taken from prize pool:")
@@ -367,7 +367,7 @@ function Bookie:GetTabBookieCreate()
 			self:GUIRefresh_BookieStatus()
 		end )
 
-	cancelBetButton = AG:Create("Button")
+	local cancelBetButton = AG:Create("Button")
 	footer:AddChild(cancelBetButton)
 	cancelBetButton:SetText("Cancel")
 	cancelBetButton:SetRelativeWidth(0.4)

@@ -3,7 +3,7 @@
 --Desciption: Client listener for recieving bets from broadcasting Bookies.
 
 local _,addon = ...
-local ClientBets = addon:NewModule("ClientBets", "AceEvent-3.0")
+local ClientBets = addon:NewModule("ClientBets")
 
 ClientBets.availableBets = {}
 ClientBets.activeBet = nil

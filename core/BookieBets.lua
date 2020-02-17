@@ -3,7 +3,7 @@
 --Description: Manager for creating and dispatching bets to listening bet clients. 
 
 local _,addon = ...
-BookieBets = BookieSave.Bookie.BookieBets or addon:NewModule("BookieBets", "AceEvent-3.0")
+BookieBets = BookieSave.Bookie.BookieBets or addon:NewModule("BookieBets")
 
 function BookieBets:Save()
 	BookieSave.Bookie.isBookie = addon.isBookie
