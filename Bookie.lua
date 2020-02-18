@@ -5,7 +5,7 @@ if BookieSave == nil then BookieSave = {} end
 BookieSave.Bookie = Bookie
 
 Bookie.playerName = nil
-Bookie.debug = true
+Bookie.debug = false
 Bookie.autoAcceptTrades = false
 Bookie.isBookie = false
 
