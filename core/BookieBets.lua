@@ -122,6 +122,7 @@ function BookieBets:ReceiveChoice(data)
 	addon:GUIRefresh_BookieStatus()
 end
 
+--[[
 function BookieBets:ReceieveClientTrade(data)
 	if not addon.isBookie then return end
 	if self.bet.status ~= addon.betStatus.Open then addon:Debug("Bookie is not open for bet trades"); return end
@@ -139,7 +140,9 @@ function BookieBets:ReceieveClientTrade(data)
 	self:UpdateClient(clientName)
 	addon:GUIRefresh_BookieStatus()
 end
+--]]
 
+--[[
 function BookieBets:ReceieveClientPayoutConfirm(data)
 	if not addon.isBookie then return end
 	if self.bet.status ~= addon.betStatus.PendingPayout then addon:Debug("Bookie is not ready for payouts"); return end
@@ -161,20 +164,89 @@ function BookieBets:ReceieveClientPayoutConfirm(data)
 	self:UpdateClient(clientName)
 	addon:GUIRefresh_BookieStatus()
 end
+--]]
 
-function BookieBets:InitiateTrade()
+function BookieBets:InitiateTrade(target)
 	if not addon.isBookie then return end
+	if not target then return end
 	if not self.bet then return end
-
-	local target = UnitName("target")
 	if not self.bet.entrants[target] then addon:Debug("Not targeting one of your clients!"); return end
 
 	addon:Debug("Trade opened with your client.")
-	self.tradeOpen = true
-	self.tradeAmount = 0
-	self.tradeTarget = target
+	self.activeTrade = {
+		amount = 0,
+		target = target,
+	}
 end
 
+function BookieBets:ReceieveClientTrade(data)
+	if not addon.isBookie then return end
+	if not self.bet then return end
+
+	local bookie, client = unpack(data)
+
+	if bookie ~= addon.playerName then return end
+	if self.activeTrade then addon:Debug("Error! Received client init trade while one was active. oh no"); return end
+
+	self:InitiateTrade(client)
+end
+
+function BookieBets:HandleTradeAccept(args)	
+	if not addon.isBookie then return end
+	if not self.activeTrade then addon:Debug("Bookie is not correctly open for trades."); return end
+	if args[1] ~= 1 then return end
+
+	local status = self.bet.entrants[self.activeTrade.target].status
+	if status == addon.clientStatus.WaitingForTrade then
+    	self.activeTrade.amount = GetTargetTradeMoney()
+    elseif status == addon.clientStatus.WaitingForPayout then
+    	self.activeTrade.amount = GetPlayerTradeMoney()
+    else
+    	addon:Debug("Error! trade failed, bailing");
+    	self:FinalizeTrade()
+    end
+    addon:Debug("traded: "..self.activeTrade.amount)
+end
+
+function BookieBets:HandlePlayerTradeMoney()
+	if not addon.isBookie then return end
+	if not self.activeTrade then addon:Debug("Bookie is not correctly open for trades."); return end
+	if self.activeTrade.amount <= 0 then return end
+
+	local amount = self.activeTrade.amount
+	local target = self.activeTrade.target
+	addon:Debug("Bookie trade amount: "..addon:FormatMoney(amount))
+
+	local client = self.bet.entrants[target]
+	if not client then addon:Debug("Client not found for this bookie!"); return end
+
+	local status = client.status
+	if status == addon.clientStatus.WaitingForTrade then
+		if self.bet.status ~= addon.betStatus.Open then addon:Debug("Bookie is not open for bet trades"); return end
+
+		client.wager = amount 
+		client.status = addon.clientStatus.WaitingForResults
+		self.bet.pool[client.choice] = self.bet.pool[client.choice] + client.wager
+
+    elseif status == addon.clientStatus.WaitingForPayout then
+		if self.bet.status ~= addon.betStatus.PendingPayout then addon:Debug("Bookie is not ready for payouts"); return end
+
+		client.payoutReceived = amount + client.payoutReceived
+		if client.payoutReceived >= client.payout then
+			addon:Debug("Traded the correct payout to the client: "..target)
+			client.status = addon.clientStatus.ConclusionPaid
+		end
+    else
+    	addon:Debug("Error! money handle failed, bailing");
+    	self:FinalizeTrade()
+    	return
+    end
+
+	self:UpdateClient(target)
+	addon:GUIRefresh_BookieStatus()
+end
+
+--[[
 function BookieBets:SetTradeAmount()	
 	if not addon.isBookie then return end
 	if not self.tradeOpen then addon:Debug("Bookie is not correctly open for trades."); return end
@@ -190,34 +262,11 @@ function BookieBets:SetTradeAmount()
     	self.tradeTarget = nil
     end
 end
-
-function BookieBets:HandleTrade()
-	if not addon.isBookie then return end
-	if not self.tradeOpen then addon:Debug("Bookie is not correctly open for trades."); return end
-	if not self.tradeAmount or self.tradeAmount == 0 then return end
-
-	addon:Debug("Bookie trade amount: "..addon:FormatMoney(self.tradeAmount))
-
-	local client = self.bet.entrants[self.tradeTarget]
-	if not client then addon:Debug("Client not found for this bookie!"); return end
-
-	local status = client.status
-	if status == addon.clientStatus.WaitingForTrade then
-		self:ReceieveClientTrade( {self.tradeTarget, self.tradeAmount} )
-
-    elseif status == addon.clientStatus.WaitingForPayout then
-    	self:ReceieveClientPayoutConfirm( {self.tradeTarget, self.tradeAmount} )
-    else
-    	addon:Debug("Bookie is not correctly open for trades.");
-    	self.tradeOpen = false
-    end
-
-	addon:GUIRefresh_BookieStatus()
-end
+--]]
 
 function BookieBets:FinalizeTrade()
 	if not addon.isBookie then return end
-	self.tradeOpen = false
+	self.activeTrade = nil
 end
 
 function BookieBets:ReceiveClientJoinManual(client, wager, choice)

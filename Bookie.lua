@@ -5,7 +5,7 @@ if BookieSave == nil then BookieSave = {} end
 BookieSave.Bookie = Bookie
 
 Bookie.playerName = nil
-Bookie.debug = false
+Bookie.debug = true
 Bookie.autoAcceptTrades = false
 Bookie.isBookie = false
 
@@ -68,9 +68,9 @@ event_handlers = {
 		handler = function(...) 
 			addon:Debug("TRADE_SHOW")
 			if addon.isBookie then
-				addon.BookieBets:InitiateTrade()
+				addon.BookieBets:InitiateTrade(UnitName("target"))
 			else
-				addon.ClientBets:InitiateTrade()
+				addon.ClientBets:InitiateTrade(UnitName("target"))
 			end
 		end,
 	},
@@ -82,6 +82,9 @@ event_handlers = {
 				AcceptTrade()
 			end
 
+			addon.BookieBets:HandleTradeAccept(args)
+
+			--[[
 			if args[1] == 1 then
 				addon:Debug("one player accept")
 				if addon.isBookie then
@@ -90,6 +93,7 @@ event_handlers = {
 					addon.ClientBets:SetTradeAmount()	
 				end
 			end
+			--]]
 		end,
 	},
 	TRADE_REQUEST_CANCEL = {
@@ -100,21 +104,23 @@ event_handlers = {
 	PLAYER_TRADE_MONEY = {
 		handler = function(...) 
 			addon:Debug("PLAYER_TRADE_MONEY")
-			if addon.isBookie then
-				addon.BookieBets:HandleTrade()	
-			else
-				addon.ClientBets:HandleTrade()	
-			end
+			addon.BookieBets:HandlePlayerTradeMoney()	
+			--if addon.isBookie then
+			--	addon.BookieBets:HandlePlayerTradeMoney()	
+			--else
+			--	addon.ClientBets:HandleTrade()	
+			--end
 		end,
 	},
 	TRADE_CLOSED = {
 		handler = function(...) 
 			addon:Debug("TRADE_CLOSED")
-			if addon.isBookie then
-				addon.BookieBets:FinalizeTrade()	
-			else
-				addon.ClientBets:FinalizeTrade()	
-			end
+			addon.BookieBets:FinalizeTrade()
+			--if addon.isBookie then
+			--	addon.BookieBets:FinalizeTrade()	
+			--else
+			--	addon.ClientBets:FinalizeTrade()	
+			--end
 		end,
 	},
 	GROUP_JOINED = {
@@ -170,12 +176,15 @@ local comm_msgs = {
 	update_client_status = {
 		callback = function(data) ClientBets:ReceiveUpdate(data) end
 	}, 
-	send_client_trade = {
+	client_init_trade = {
 		callback = function(data) BookieBets:ReceieveClientTrade(data) end
 	},
-	send_client_payout_confirm = {
-		callback = function(data) BookieBets:ReceieveClientPayoutConfirm(data) end
-	},
+	--send_client_trade = {
+	--	callback = function(data) BookieBets:ReceieveClientTrade(data) end
+	--},
+	--send_client_payout_confirm = {
+	--	callback = function(data) BookieBets:ReceieveClientPayoutConfirm(data) end
+	--},
 	send_remove_bet = {
 		callback = function(data) ClientBets:ReceiveRemovedFromBet(data) end
 	},

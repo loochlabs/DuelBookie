@@ -137,18 +137,16 @@ function ClientBets:SubmitWager(choice)
 	addon:SendCommand("send_choice", { self.activeBet.bookie, addon.playerName, choice })
 end
 
-function ClientBets:InitiateTrade()
+function ClientBets:InitiateTrade(target)
 	if addon.isBookie then return end
 	if not self.activeBet then return end
-
-	target = UnitName("target")
 	if not target or target ~= self.activeBet.bookie then addon:Debug("Not targeting your active bookie!"); return end
 	
 	addon:Debug("Trade opened with your bookie: "..target)
-	self.tradeOpen = true
-	self.tradeAmount = 0
+	addon:SendCommand("client_init_trade", {target, addon.playerName} )
 end
 
+--[[
 function ClientBets:SetTradeAmount()	
 	if addon.isBookie then return end
 	if not self.tradeOpen then addon:Debug("Client is not correctly open for trades."); return end
@@ -163,7 +161,8 @@ function ClientBets:SetTradeAmount()
     	self.tradeOpen = false
     end
 end
-
+--]]
+--[[
 function ClientBets:HandleTrade()
 	if addon.isBookie then return end
 	if not self.tradeOpen then addon:Debug("Client is not correctly open for trades."); return end
@@ -180,18 +179,20 @@ function ClientBets:HandleTrade()
 
     addon:GUIRefresh_ClientWaiting()
 end
-
+--]]
+--[[
 function ClientBets:FinalizeTrade()
 	if addon.isBookie then return end
 	self.tradeOpen = false
 end
+--]]
 
 function ClientBets:ReceiveCancelledBet(data)
 	if addon.isBookie then return end
 	if not self.activeBet then return end
 
 	local bookie = unpack(data)
-	
+
 	if bookie ~= self.activeBet.bookie then return end
 
 	addon:Debug("Bookie cancelled our bet. Returning to lobby.")
