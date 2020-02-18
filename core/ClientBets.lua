@@ -66,12 +66,12 @@ end
 function ClientBets:ReceiveAvailableBet(data)
 	if addon.isBookie then return end
 
-	bookie, clientName, dueler1, dueler2= unpack(data)
+	local bookie, clientName, dueler1, dueler2= unpack(data)
 
 	if clientName ~= addon.playerName then return end
 	addon:Debug("Received available bet from: "..bookie)
 
-	bet = {
+	local bet = {
 		bookie = bookie,
 		duelers = { dueler1, dueler2 },
 	}
@@ -85,9 +85,7 @@ end
 
 function ClientBets:GetActiveBet()
 	if addon.isBookie then return end
-
-	msg = { addon.playerName }
-	addon:SendCommand("get_active_bet", msg)
+	addon:SendCommand("get_active_bet", { addon.playerName })
 end
 
 function ClientBets:GetAvailableBets()
@@ -95,9 +93,7 @@ function ClientBets:GetAvailableBets()
 
 	--Clear our current available bets, get a fresh update from all possible bookies
 	self.availableBets = {}
-
-	msg = { addon.playerName }
-	addon:SendCommand("get_available_bets", msg)
+	addon:SendCommand("get_available_bets", { addon.playerName })
 end
 
 function ClientBets:ReceiveBetClosed(data)
@@ -114,9 +110,7 @@ function ClientBets:JoinBet(index)
 	bet = self.availableBets[index]
 	if not bet then return end
 
-	msg = { bet.bookie, addon.playerName }
-	addon:SendCommand("join_bet", msg)
-
+	addon:SendCommand("join_bet", { bet.bookie, addon.playerName })
 	addon:GUIRefresh_Lobby()
 end
 
@@ -125,8 +119,7 @@ function ClientBets:QuitBet()
 
 	--TODO break this up into a seperate call, the bookie alert is redundant if the bookie cancelled a bet
 	--	This function needs a cleanup + bookie alert
-	msg = { self.activeBet.bookie, addon.playerName }
-	addon:SendCommand("quit_bet", msg)
+	addon:SendCommand("quit_bet", { self.activeBet.bookie, addon.playerName })
 
 	self.activeBet = nil
 	self.availableBets = nil
@@ -141,9 +134,7 @@ function ClientBets:SubmitWager(choice)
 	if not self.activeBet then addon:Debug("ERROR! Client does not have an active bet"); return end
 
 	addon:Debug("Client sending wager submission")
-
-	msg = { self.activeBet.bookie, addon.playerName, choice }
-	addon:SendCommand("send_choice", msg)
+	addon:SendCommand("send_choice", { self.activeBet.bookie, addon.playerName, choice })
 end
 
 function ClientBets:InitiateTrade()
@@ -181,12 +172,10 @@ function ClientBets:HandleTrade()
 	local status = self.activeBet.entrants[addon.playerName].status
 	if status == addon.clientStatus.WaitingForTrade then
     	addon:Debug("Client sending trade amount: "..addon:FormatMoney(self.tradeAmount))
-		local msg = { addon.playerName, self.tradeAmount }
-		addon:SendCommand("send_client_trade", msg)
+		addon:SendCommand("send_client_trade", { addon.playerName, self.tradeAmount })
 
     elseif status == addon.clientStatus.WaitingForPayout then
-    	local msg = { addon.playerName, self.tradeAmount }
-		addon:SendCommand("send_client_payout_confirm", msg)
+		addon:SendCommand("send_client_payout_confirm", { addon.playerName, self.tradeAmount })
     end
 
     addon:GUIRefresh_ClientWaiting()
@@ -201,8 +190,8 @@ function ClientBets:ReceiveCancelledBet(data)
 	if addon.isBookie then return end
 	if not self.activeBet then return end
 
-	bookie = unpack(data)
-
+	local bookie = unpack(data)
+	
 	if bookie ~= self.activeBet.bookie then return end
 
 	addon:Debug("Bookie cancelled our bet. Returning to lobby.")

@@ -5,7 +5,7 @@ if BookieSave == nil then BookieSave = {} end
 BookieSave.Bookie = Bookie
 
 Bookie.playerName = nil
-Bookie.debug = false
+Bookie.debug = true
 Bookie.autoAcceptTrades = false
 Bookie.isBookie = false
 
@@ -275,20 +275,15 @@ function Bookie:FormatMoney(money)
 	if not string.match(money, "%d") then return money end
 	if money == 0 then return "0g" end
 
-    local ret = ""
     local gold = floor(money/10000)
     local silver = floor((money - (gold * 10000)) / 100)
     local copper = floor(mod(money, 100))
-    if gold > 0 then
-        ret = gold .. "g "
-    end
-    if silver > 0 then
-        ret = ret .. silver .. "s "
-    end
-    if copper > 0 then
-    	ret = ret .. copper .. "c"
-    end
-    return ret
+
+    local gtext, stext, ctext = "", "", ""
+    if gold > 0 then gtext = gold .. "g " end
+    if silver > 0 then stext = silver .. "s " end
+    if copper > 0 then ctext = copper .. "c"  end
+    return string.format("%s %s %s", gtext, stext, ctext)
 end
 
 function Bookie:GetClientStatusText(status)
@@ -330,12 +325,10 @@ local slash_cmds = {
 }
 
 function MDB_SlashCmd(msg)
-	if not msg or msg == "" then
-		msg = "show"
-	end
+	if not msg or msg == "" then msg = "show" end
 
-	args = {} 
-	idx = 0
+	local args = {} 
+	local idx = 0
 	for arg in string.gmatch(msg, "([^".." ".."]+)") do
 		args[idx] = arg
 		idx = idx + 1

@@ -45,8 +45,6 @@ local FrameDefaults = {
 
 local frame = nil 
 local root = nil
-local activeTab = nil
-local joinIndex = 0
 
 local BookieFontDuelerChoice = CreateFont("BookieFontDuelerChoice")
 BookieFontDuelerChoice:SetFontObject(GameFontNormalHuge2)
@@ -119,10 +117,11 @@ function Bookie:ValidBetParams(dueler1, dueler2, minbet, maxbet, rake)
  	return validNames and minbet and maxbet and rake and (tonumber(minbet) < tonumber(maxbet))
 end
 
-function Bookie:SetFrame(key)
+function Bookie:DrawFrame(key)
 	addon:Debug("Getting active widget "..key)
 	local default = FrameDefaults[key]
-	activeTab = default.widget()
+	root:ReleaseChildren()
+	root:AddChild(default.widget())
 	frame:SetHeight(default.height or FrameDefaults.height)
 	frame:SetWidth(default.width or FrameDefaults.width)
 end
@@ -205,11 +204,7 @@ function Bookie:MDB_GetTabLobby()
 			joinButton:SetText("Join")
 			joinButton:SetFullWidth(true)
 			joinButton:SetFullHeight(true)
-			joinButton:SetCallback("OnClick", 
-				function() 
-					joinIndex = idx
-					ClientBets:JoinBet(idx)
-				end) 
+			joinButton:SetCallback("OnClick", function() ClientBets:JoinBet(idx) end) 
 			buttonPanel:AddChild(joinButton)
 		end
 	end
@@ -1065,12 +1060,12 @@ function Bookie:GetTabClientWaiting()
 end
 
 --TODO rename
-function Bookie:DrawActiveTabGroup(container)
-	container:ReleaseChildren()
-	container:AddChild(activeTab)
-	activeTab:SetFullWidth(true)
-	activeTab:SetFullHeight(true)
-end
+--function Bookie:DrawActiveTabGroup(container)
+--	container:ReleaseChildren()
+--	container:AddChild(activeTab)
+--	activeTab:SetFullWidth(true)
+--	activeTab:SetFullHeight(true)
+--end
 
 function Bookie:GUIInit()
 	frame = AG:Create("Frame")
@@ -1097,40 +1092,29 @@ function Bookie:GUIInit()
 	end
 end
 
-function Bookie:GUIRefresh_Active()
-	if not frame:IsVisible() then return end
-	root:ReleaseChildren()
-	self:DrawActiveTabGroup(root)
-end
-
 function Bookie:GUIRefresh_ClientJoined()
 	if not frame:IsVisible() then return end
-	self:SetFrame("client_joined")
-	self:GUIRefresh_Active()
+	self:DrawFrame("client_joined")
 end
 
 function Bookie:GUIRefresh_ClientWaiting()
 	if not frame:IsVisible() then return end
-	self:SetFrame("client_waiting")
-	self:GUIRefresh_Active()
+	self:DrawFrame("client_waiting")
 end
 
 function Bookie:GUIRefresh_BookieCreate()
 	if not frame:IsVisible() then return end
-	self:SetFrame("bookie_create")
-	self:GUIRefresh_Active()
+	self:DrawFrame("bookie_create")
 end
 
 function Bookie:GUIRefresh_BookieStatus()
 	if not frame:IsVisible() then return end
-	self:SetFrame("bookie_status")
-	self:GUIRefresh_Active()
+	self:DrawFrame("bookie_status")
 end
 
 function Bookie:GUIRefresh_Lobby()
 	if not frame:IsVisible() then return end
-	self:SetFrame("lobby")
-	self:GUIRefresh_Active()
+	self:DrawFrame("lobby")
 end
 
 function Bookie:GUI_ShowRootFrame()
