@@ -7,7 +7,6 @@ local ClientBets = addon:NewModule("ClientBets")
 
 ClientBets.availableBets = {}
 ClientBets.activeBet = nil
-ClientBets.tradeOpen = false
 
 local UpdateCallbacks = {
 	[addon.clientStatus.Inactive] = {
@@ -145,47 +144,6 @@ function ClientBets:InitiateTrade(target)
 	addon:Debug("Trade opened with your bookie: "..target)
 	addon:SendCommand("client_init_trade", {target, addon.playerName} )
 end
-
---[[
-function ClientBets:SetTradeAmount()	
-	if addon.isBookie then return end
-	if not self.tradeOpen then addon:Debug("Client is not correctly open for trades."); return end
-
-	local status = self.activeBet.entrants[addon.playerName].status
-	if status == addon.clientStatus.WaitingForTrade then
-    	self.tradeAmount = GetPlayerTradeMoney()
-    elseif status == addon.clientStatus.WaitingForPayout then
-    	self.tradeAmount = GetTargetTradeMoney()
-    else
-    	addon:Debug("Client is not in correct status: "..status);
-    	self.tradeOpen = false
-    end
-end
---]]
---[[
-function ClientBets:HandleTrade()
-	if addon.isBookie then return end
-	if not self.tradeOpen then addon:Debug("Client is not correctly open for trades."); return end
-	if self.tradeAmount == nil or self.tradeAmount == 0 then addon:Debug("Client traded 0g."); return end
-
-	local status = self.activeBet.entrants[addon.playerName].status
-	if status == addon.clientStatus.WaitingForTrade then
-    	addon:Debug("Client sending trade amount: "..addon:FormatMoney(self.tradeAmount))
-		addon:SendCommand("send_client_trade", { addon.playerName, self.tradeAmount })
-
-    elseif status == addon.clientStatus.WaitingForPayout then
-		addon:SendCommand("send_client_payout_confirm", { addon.playerName, self.tradeAmount })
-    end
-
-    addon:GUIRefresh_ClientWaiting()
-end
---]]
---[[
-function ClientBets:FinalizeTrade()
-	if addon.isBookie then return end
-	self.tradeOpen = false
-end
---]]
 
 function ClientBets:ReceiveCancelledBet(data)
 	if addon.isBookie then return end

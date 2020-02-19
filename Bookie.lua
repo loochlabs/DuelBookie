@@ -211,23 +211,38 @@ end
 -- @param target The receiver of the message. Can be "group", "guild" or "playerName".
 -- @param command The command to send.
 -- @param ... Any number of arguments to send along. Will be packaged as a table.
-function Bookie:SendCommand(command, data)
+function Bookie:SendCommand(command, data, method)
 	if not (IsInGuild() or IsInRaid() or IsInGroup()) then addon:Debug("No comm methods are available."); return end
 
 	local toSend = self:Serialize(command, data)
 
-	if IsInGuild() then
-		addon:Debug("Sending GUILD comm: "..command)
-		self:SendCommMessage("Bookie", toSend, "GUILD")
+	if not method then
+		if IsInGuild() then method = "GUILD" end
+		if IsInRaid() then method = "RAID"
+		elseif IsInGroup() then method = "PARTY" end
 	end
 
-	if IsInRaid() then 
-		addon:Debug("Sending RAID comm: "..command)
-		self:SendCommMessage("Bookie", toSend, "RAID")
-	elseif IsInGroup() then 
-		addon:Debug("Sending PARTY comm: "..command)
-		self:SendCommMessage("Bookie", toSend, "PARTY")
-	end
+	addon:Debug(string.format("Sending %s comm: %s", method, command))
+	self:SendCommMessage("Bookie", toSend, method)
+	--[[
+	if lobby
+		*GUILD
+		*RAID/PARTY
+	if bookie_bets_open
+		*GUILD
+		*RAID/PARTY
+	
+	--set entrant comm method
+	if bookie_bets_closed
+		BookieBets.entrants[1..n].method
+
+	--set entrant comm method on join
+	if client
+		bookie
+
+	--]]
+
+	
 end
 
 --- Receives Bookie commands.
