@@ -446,10 +446,16 @@ function Bookie:GetControlButtons(status)
 	controlBetsPanel:SetLayout("Flow")
 
 	if status == addon.betStatus.Open then
-		addon:Debug("Get control buttons: "..status)
-		closeBetsButton = AG:Create("Button")
+		
+		local lastcallButton = AG:Create("Button")
+		controlBetsPanel:AddChild(lastcallButton)
+		lastcallButton:SetRelativeWidth(0.5)
+		lastcallButton:SetText("Last Call")
+		lastcallButton:SetCallback("OnClick", function() addon:ChatMsg("Bookie: Last call to place bets.", "SAY") end)
+
+		local closeBetsButton = AG:Create("Button")
 		controlBetsPanel:AddChild(closeBetsButton)
-		closeBetsButton:SetRelativeWidth(1)
+		closeBetsButton:SetRelativeWidth(0.5)
 		closeBetsButton:SetDisabled(BookieBets:GetEntrantsCount() == 0)
 		closeBetsButton:SetText("Close Bets")
 		closeBetsButton:SetCallback("OnClick", 

@@ -51,6 +51,8 @@ function Bookie:OnInitialize()
 	addon:Debug("Bookie initialize")
 	addon:LoadSavedVariables()
 
+	--self:ChatMsg("Bookie here", "SAY")
+
 	self.playerName = UnitName("player")
 	self:RegisterComm("Bookie")
 	self:GUIInit()
@@ -266,6 +268,10 @@ end
 
 function Bookie:Debug(msg, ...)
 	if self.debug then print(string.format("%s%s", "MDB:", msg)) end
+end
+
+function Bookie:ChatMsg(msg, chatType)
+	SendChatMessage(msg, chatType, nil, "Bob")
 end
 
 function Bookie:FormatMoney(money)
