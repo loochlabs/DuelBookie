@@ -117,6 +117,21 @@ function Bookie:ValidBetParams(dueler1, dueler2, minbet, maxbet, rake)
  	return validNames and minbet and maxbet and rake and (tonumber(minbet) < tonumber(maxbet))
 end
 
+--TODO move to utils
+function Bookie:GetRake(text)
+	rake = string.gsub(text, "%%", "")
+	rake = tonumber(rake)/100
+	return rake
+end
+
+local function ValidWager(wager)
+	return string.match(wager, '%D') == nil and tonumber(wager) > 0
+end
+
+local function ValidName(name)
+	return string.match(name, '%w') ~= nil
+end
+
 function Bookie:DrawFrame(key)
 	addon:Debug("Getting active widget "..key)
 	local default = FrameDefaults[key]
@@ -124,6 +139,67 @@ function Bookie:DrawFrame(key)
 	root:AddChild(default.widget())
 	frame:SetHeight(default.height or FrameDefaults.height)
 	frame:SetWidth(default.width or FrameDefaults.width)
+end
+
+function Bookie:GUIInit()
+	frame = AG:Create("Frame")
+	frame:SetTitle("Bookie")
+	frame:SetLayout("Fill")
+	frame:SetCallback("OnClose", function(widget) AG:Release(widget) end)
+	frame:SetWidth(FrameDefaults.width)
+	frame:SetHeight(FrameDefaults.height)
+
+	root = AG:Create("SimpleGroup")
+	frame:AddChild(root)
+	root:SetLayout("Flow")
+
+	if addon.isBookie then
+		addon:Debug("resuming active bookie bets")
+		self:GUIRefresh_BookieStatus()
+	else
+		ClientBets:GetActiveBet()
+		if not ClientBets.activeBet then
+			ClientBets:GetAvailableBets()
+		end
+
+		self:GUIRefresh_Lobby()
+	end
+end
+
+function Bookie:GUIRefresh_ClientJoined()
+	if not frame:IsVisible() then return end
+	self:DrawFrame("client_joined")
+end
+
+function Bookie:GUIRefresh_ClientWaiting()
+	if not frame:IsVisible() then return end
+	self:DrawFrame("client_waiting")
+end
+
+function Bookie:GUIRefresh_BookieCreate()
+	if not frame:IsVisible() then return end
+	self:DrawFrame("bookie_create")
+end
+
+function Bookie:GUIRefresh_BookieStatus()
+	if not frame:IsVisible() then return end
+	self:DrawFrame("bookie_status")
+end
+
+function Bookie:GUIRefresh_Lobby()
+	if not frame:IsVisible() then return end
+	self:DrawFrame("lobby")
+end
+
+function Bookie:GUI_ShowRootFrame()
+	if not frame:IsVisible() then
+		self:GUIInit()
+		frame:Show()
+	end
+end
+
+function Bookie:GUI_HideRootFrame()
+	frame:Hide()
 end
 
 function Bookie:MDB_GetTabLobby()
@@ -216,13 +292,6 @@ function Bookie:MDB_GetTabLobby()
 	end
 
 	return returnGroup
-end
-
---TODO move to utils
-function Bookie:GetRake(text)
-	rake = string.gsub(text, "%%", "")
-	rake = tonumber(rake)/100
-	return rake
 end
 
 function Bookie:GetTabBookieCreate()
@@ -419,14 +488,6 @@ function Bookie:GetControlButtons(status)
 	end
 	
 	return controlBetsPanel
-end
-
-local function ValidWager(wager)
-	return string.match(wager, '%D') == nil and tonumber(wager) > 0
-end
-
-local function ValidName(name)
-	return string.match(name, '%w') ~= nil
 end
 
 local function CreateAddEntrantFrame()
@@ -1059,71 +1120,3 @@ function Bookie:GetTabClientWaiting()
 	return returnGroup
 end
 
---TODO rename
---function Bookie:DrawActiveTabGroup(container)
---	container:ReleaseChildren()
---	container:AddChild(activeTab)
---	activeTab:SetFullWidth(true)
---	activeTab:SetFullHeight(true)
---end
-
-function Bookie:GUIInit()
-	frame = AG:Create("Frame")
-	frame:SetTitle("Bookie")
-	frame:SetLayout("Fill")
-	frame:SetCallback("OnClose", function(widget) AG:Release(widget) end)
-	frame:SetWidth(FrameDefaults.width)
-	frame:SetHeight(FrameDefaults.height)
-
-	root = AG:Create("SimpleGroup")
-	frame:AddChild(root)
-	root:SetLayout("Flow")
-
-	if addon.isBookie then
-		addon:Debug("resuming active bookie bets")
-		self:GUIRefresh_BookieStatus()
-	else
-		ClientBets:GetActiveBet()
-		if not ClientBets.activeBet then
-			ClientBets:GetAvailableBets()
-		end
-
-		self:GUIRefresh_Lobby()
-	end
-end
-
-function Bookie:GUIRefresh_ClientJoined()
-	if not frame:IsVisible() then return end
-	self:DrawFrame("client_joined")
-end
-
-function Bookie:GUIRefresh_ClientWaiting()
-	if not frame:IsVisible() then return end
-	self:DrawFrame("client_waiting")
-end
-
-function Bookie:GUIRefresh_BookieCreate()
-	if not frame:IsVisible() then return end
-	self:DrawFrame("bookie_create")
-end
-
-function Bookie:GUIRefresh_BookieStatus()
-	if not frame:IsVisible() then return end
-	self:DrawFrame("bookie_status")
-end
-
-function Bookie:GUIRefresh_Lobby()
-	if not frame:IsVisible() then return end
-	self:DrawFrame("lobby")
-end
-
-function Bookie:GUI_ShowRootFrame()
-	if not frame:IsVisible() then
-		self:GUIInit()
-		frame:Show()
-	end
-end
-
-function Bookie:GUI_HideRootFrame()
-	frame:Hide()
-end

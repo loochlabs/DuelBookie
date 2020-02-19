@@ -39,7 +39,6 @@ Bookie.betStatus = {
 }
 
 function Bookie:LoadSavedVariables()
-	addon:Debug("loading saved vars")
 	addon.isBookie = BookieSave.Bookie.isBookie or false
 
 	if addon.isBookie then
@@ -83,44 +82,24 @@ event_handlers = {
 			end
 
 			addon.BookieBets:HandleTradeAccept(args)
-
-			--[[
-			if args[1] == 1 then
-				addon:Debug("one player accept")
-				if addon.isBookie then
-					addon.BookieBets:SetTradeAmount()	
-				else
-					addon.ClientBets:SetTradeAmount()	
-				end
-			end
-			--]]
 		end,
 	},
 	TRADE_REQUEST_CANCEL = {
 		handler = function(...) 
 			addon:Debug("TRADE_REQUEST_CANCEL")
+			addon.BookieBets:FinalizeTrade()
 		end,
 	},
 	PLAYER_TRADE_MONEY = {
 		handler = function(...) 
 			addon:Debug("PLAYER_TRADE_MONEY")
 			addon.BookieBets:HandlePlayerTradeMoney()	
-			--if addon.isBookie then
-			--	addon.BookieBets:HandlePlayerTradeMoney()	
-			--else
-			--	addon.ClientBets:HandleTrade()	
-			--end
 		end,
 	},
 	TRADE_CLOSED = {
 		handler = function(...) 
 			addon:Debug("TRADE_CLOSED")
 			addon.BookieBets:FinalizeTrade()
-			--if addon.isBookie then
-			--	addon.BookieBets:FinalizeTrade()	
-			--else
-			--	addon.ClientBets:FinalizeTrade()	
-			--end
 		end,
 	},
 	GROUP_JOINED = {
@@ -179,12 +158,6 @@ local comm_msgs = {
 	client_init_trade = {
 		callback = function(data) BookieBets:ReceieveClientTrade(data) end
 	},
-	--send_client_trade = {
-	--	callback = function(data) BookieBets:ReceieveClientTrade(data) end
-	--},
-	--send_client_payout_confirm = {
-	--	callback = function(data) BookieBets:ReceieveClientPayoutConfirm(data) end
-	--},
 	send_remove_bet = {
 		callback = function(data) ClientBets:ReceiveRemovedFromBet(data) end
 	},
