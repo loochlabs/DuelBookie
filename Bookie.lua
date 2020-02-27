@@ -313,6 +313,9 @@ function MDB_HideRootFrame()
 	addon:GUI_HideRootFrame()
 end
 
+function MDB_PrintVersionNumber()
+		
+end
 
 local slash_cmds = {
 	show = {
@@ -325,6 +328,11 @@ local slash_cmds = {
 		func = MDB_HideRootFrame,
 		description = "Hides the main window."
 	},
+	v = {
+		cmd = "v",
+		func = MDB_PrintVersionNumber,
+		description = "Show version number."	
+	}
 }
 
 function MDB_SlashCmd(msg)

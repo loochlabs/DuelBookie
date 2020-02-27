@@ -1,7 +1,7 @@
 --core 
 
 local addonName,addon = ...
-local AG = LibStub("AceGUI-3.0")
+local AG = LibStub("AceGUI-3.1")
 
 --TODO cleanup this global
 ClientBets = addon:GetModule("ClientBets")
@@ -14,8 +14,36 @@ Bookie = addon
 addon.ClientBets = ClientBets
 addon.BookieBets = BookieBets
 
+local ClientQuitConfirmationPopup = "BOOKIE_CLIENT_CONFIRM_QUIT"
+StaticPopupDialogs[ClientQuitConfirmationPopup] = {
+	text = "Are you sure you want to quit?\nAny bets will for forfeited.",
+	button1 = "Quit",
+	button2 = "Cancel",
+	OnAccept = function()
+		ClientBets:QuitBet()
+	end,
+	timeout = 15,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+}
+
+local BookieCancelConfirmationPopup = "BOOKIE_BOOKIE_CONFIRM_CANCEL_BET"
+StaticPopupDialogs[BookieCancelConfirmationPopup] = {
+	text = "Are you sure you want to cancel this bet?",
+	button1 = "Confirm",
+	button2 = "Cancel",
+	OnAccept = function()
+		BookieBets:CancelBet()
+	end,
+	timeout = 15,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+}
+
 local FrameDefaults = {
-	width = 270,
+	width = 284,
 	height = 330,
 	lobby = {
 		widget = function() return addon:MDB_GetTabLobby() end,
@@ -427,6 +455,11 @@ function Bookie:GetTabBookieCreate()
 	createBetStartButton:SetDisabled(not self:ValidBetParams(dueler1Name, dueler2Name, minbet, maxbet, rake))
 	createBetStartButton:SetCallback("OnClick", 
 		function() 
+			addon:ChatMsg(
+				string.format("Bookie: %s vs %s - Now open for bets", 
+					string.upper(dueler1Name), 
+					string.upper(dueler2Name)), 
+				"SAY")
 			BookieBets:CreateBet(dueler1Name, dueler2Name, minbet, maxbet, rake) 
 			self:GUIRefresh_BookieStatus()
 		end )
@@ -449,13 +482,13 @@ function Bookie:GetControlButtons(status)
 		
 		local lastcallButton = AG:Create("Button")
 		controlBetsPanel:AddChild(lastcallButton)
-		lastcallButton:SetRelativeWidth(0.5)
+		lastcallButton:SetRelativeWidth(0.4)
 		lastcallButton:SetText("Last Call")
 		lastcallButton:SetCallback("OnClick", function() addon:ChatMsg("Bookie: Last call to place bets.", "SAY") end)
 
 		local closeBetsButton = AG:Create("Button")
 		controlBetsPanel:AddChild(closeBetsButton)
-		closeBetsButton:SetRelativeWidth(0.5)
+		closeBetsButton:SetRelativeWidth(0.6)
 		closeBetsButton:SetDisabled(BookieBets:GetEntrantsCount() == 0)
 		closeBetsButton:SetText("Close Bets")
 		closeBetsButton:SetCallback("OnClick", 
@@ -484,7 +517,7 @@ function Bookie:GetControlButtons(status)
 	elseif status == addon.betStatus.Complete or status == addon.betStatus.PendingPayout then
 		returnButton = AG:Create("Button")
 		controlBetsPanel:AddChild(returnButton)
-		returnButton:SetRelativeWidth(1)
+		returnButton:SetFullWidth(true)
 		returnButton:SetText("Return to Lobby")
 		returnButton:SetCallback("OnClick", function() BookieBets:EndCurrentBet() end )
 
@@ -587,7 +620,7 @@ function Bookie:GetTabBookieStatus()
 	cancelButton:SetFullWidth(true)
 	cancelButton:SetText("Cancel Bet")
 	cancelButton:SetCallback("OnClick", function() 
-		BookieBets:CancelBet() 
+		StaticPopup_Show(BookieCancelConfirmationPopup)
 	end)
 
 	local horzline4 = AG:Create("Heading")
@@ -774,7 +807,7 @@ function Bookie:GetTabBookieStatus()
 			entry:AddChild(entryStatus)
 			entryStatus:SetText(BookieStatusData[status].text)
 			entryStatus:SetColor(unpack(BookieStatusData[status].color))
-			entryStatus:SetRelativeWidth(0.39)
+			entryStatus:SetRelativeWidth(0.375)
 			entryStatus:SetJustifyH("CENTER")
 
 			local entryWager = AG:Create("Label")
@@ -785,13 +818,29 @@ function Bookie:GetTabBookieStatus()
 
 			local removeButton = AG:Create("Button")
 			entry:AddChild(removeButton)
-			removeButton:SetRelativeWidth(0.15)
+			removeButton:SetRelativeWidth(0.165)
 			removeButton:SetText("X")
 			removeButton:SetDisabled(bet.status == addon.betStatus.BetsClosed)
 			removeButton.entrant = name
+
+			--TODO just declare this here for now
+			local BookieRemoveEntrantConfirmationPopup = "BOOKIE_BOOKIE_CONFIRM_REMOVE_ENTRANT"
+			StaticPopupDialogs[BookieRemoveEntrantConfirmationPopup] = {
+				text = "Are you sure you want to remove this wager?",
+				button1 = "Confirm",
+				button2 = "Cancel",
+				OnAccept = function()
+					BookieBets:RemoveEntrant(removeButton.entrant) 
+					addon:GUIRefresh_BookieStatus()
+				end,
+				timeout = 15,
+				whileDead = true,
+				hideOnEscape = true,
+				preferredIndex = 3,
+			}
+
 			removeButton:SetCallback("OnClick", function() 
-				BookieBets:RemoveEntrant(removeButton.entrant) 
-				addon:GUIRefresh_BookieStatus()
+				StaticPopup_Show(BookieRemoveEntrantConfirmationPopup)
 			end)
 
 			moneyText = ""
@@ -844,9 +893,9 @@ function Bookie:GetTabClientJoined()
 
 	local cancelButton = AG:Create("Button")
 	body:AddChild(cancelButton)
-	cancelButton:SetText("Return to Lobby")
+	cancelButton:SetText("Quit Session")
 	cancelButton:SetFullWidth(true)
-	cancelButton:SetCallback("OnClick", function() ClientBets:QuitBet() end) 
+	cancelButton:SetCallback("OnClick", function() StaticPopup_Show(ClientQuitConfirmationPopup) end) 
 
 	local horzline = AG:Create("Heading")
 	horzline:SetRelativeWidth(1)
@@ -1121,7 +1170,7 @@ function Bookie:GetTabClientWaiting()
 	cancelButton:SetDisabled(buttonDisable)
 	cancelButton:SetText(buttonText)
 	cancelButton:SetFullWidth(true)
-	cancelButton:SetCallback("OnClick", function() ClientBets:QuitBet() end) 
+	cancelButton:SetCallback("OnClick", function() StaticPopup_Show(ClientQuitConfirmationPopup) end) 
 	
 	return returnGroup
 end

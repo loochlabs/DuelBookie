@@ -47,7 +47,8 @@ function ClientBets:ReceiveUpdate(data)
 
 	local bookie, client, bet = unpack(data)
 
-	if client ~= addon.playerName then addon:Debug("invalid client name update: ") return end
+	if not client then return end
+	if client ~= addon.playerName then addon:Debug(string.format("invalid client name update: %s from %s",client, bookie)) return end
 	if not bet then return end
 	if not bet.entrants[client] then addon:Debug("Error! Client does not exist in bookie's active bet"); return end
 

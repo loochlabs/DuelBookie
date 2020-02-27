@@ -160,6 +160,7 @@ function BookieBets:HandleTradeAccept(args)
     else
     	addon:Debug("Error! trade failed, bailing");
     	self:FinalizeTrade()
+    	return
     end
     addon:Debug("traded: "..self.activeTrade.amount)
 end
@@ -210,13 +211,22 @@ end
 function BookieBets:ReceiveClientJoinManual(client, wager, choice)
 	if not addon.isBookie then return end
 	if not self.bet then addon:Debug("Error! bookie was not initialized correctly."); return end
+	if self.bet.status ~= addon.betStatus.Open then addon:Debug("Error: manual add, not open for bets"); return end
 	if not client or client == "" then addon:Debug("Error! empty client name added."); return end
 
  	addon:Debug("Submitting new entrant to active bet.") 
 
-	self:ReceiveClientJoin( {addon.playerName, client} ) 
-	self:ReceiveChoice( {addon.playerName, client, choice} )
-	self:ReceieveClientTrade( {client, wager} )
+	local entrant = {
+		status = addon.clientStatus.WaitingForResults,
+		payout = "TBD",
+		payoutReceived = 0,
+		choice = choice,
+		wager = wager,
+	}
+
+	self.bet.entrants[client] = entrant
+	self.bet.pool[choice] = self.bet.pool[choice] + wager
+	addon:GUIRefresh_BookieStatus()
 end
 
 function BookieBets:RemoveEntrant(name)

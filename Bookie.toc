@@ -1,7 +1,7 @@
 ## Interface: 11303
 ## Title:Bookie
 ## Author: sayntlooch
-## Version: 0.9
+## Version: 0.10
 ## DefaultState: Enabled
 ## LoadOnDemand: 0
 ## Notes: Gambling manager for duel outcome bets and payouts. 
