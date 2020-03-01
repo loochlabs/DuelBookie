@@ -19,17 +19,6 @@ Bookie.clientStatus = {
 	ConclusionPaid = 7,
 }
 
---TODO remove, handling this in core gui
-Bookie.clientStatusShort = {
-	"DONE",
-	"CHOOSING OPTION",
-	"NEEDS TO PAY",
-	"WAGERED",
-	"NEEDS",
-	"LOST",
-	"WAS PAID",
-}
-
 Bookie.betStatus = {
 	Open = 0,
 	BetsClosed = 1,
@@ -49,19 +38,6 @@ end
 
 function Bookie:OnInitialize()
 	addon:Debug("Bookie initialize")
-	addon:LoadSavedVariables()
-
-	--self:ChatMsg("Bookie here", "SAY")
-
-	self.playerName = UnitName("player")
-	self:RegisterComm("Bookie")
-	self:GUIInit()
-
-	if addon.debug then 
-		addon:GUI_ShowRootFrame() 
-	else
-		addon:GUI_HideRootFrame()
-	end
 end
 
 event_handlers = {
@@ -86,12 +62,6 @@ event_handlers = {
 			addon.BookieBets:HandleTradeAccept(args)
 		end,
 	},
-	TRADE_REQUEST_CANCEL = {
-		handler = function(...) 
-			addon:Debug("TRADE_REQUEST_CANCEL")
-			addon.BookieBets:FinalizeTrade()
-		end,
-	},
 	PLAYER_TRADE_MONEY = {
 		handler = function(...) 
 			addon:Debug("PLAYER_TRADE_MONEY")
@@ -101,6 +71,12 @@ event_handlers = {
 	TRADE_CLOSED = {
 		handler = function(...) 
 			addon:Debug("TRADE_CLOSED")
+			addon.BookieBets:FinalizeTrade()
+		end,
+	},
+	TRADE_REQUEST_CANCEL = {
+		handler = function(...) 
+			addon:Debug("TRADE_REQUEST_CANCEL")
 			addon.BookieBets:FinalizeTrade()
 		end,
 	},
@@ -116,6 +92,21 @@ event_handlers = {
 				end
 			end
 		end,
+	},
+	PLAYER_ENTERING_WORLD = {
+		handler = function(...)
+			addon:Debug("PLAYER_ENTERING_WORLD")
+			addon:LoadSavedVariables()
+			addon.playerName = UnitName("player")
+			addon:RegisterComm("Bookie")
+			addon:GUIInit()
+
+			if addon.debug then 
+				addon:GUI_ShowRootFrame() 
+			else
+				addon:GUI_HideRootFrame()
+			end
+		end
 	},
 }
 
@@ -179,10 +170,7 @@ end
 function Bookie:GetSyncGroupOptions()
    local name, isOnline, class, _
    local ret = {}
-   -- target
-   --if UnitIsFriend("player", "target") and UnitIsPlayer("target") then
-   --   addNameToList(ret, addon:UnitName("target"), select(2, UnitClass("target")))
-   --end
+
    -- group
    for i = 1, GetNumGroupMembers() do
 	   name, _, _, _, _, _, _, isOnline = GetRaidRosterInfo(i)
@@ -194,17 +182,17 @@ function Bookie:GetSyncGroupOptions()
       if isOnline then AddNameToList(ret, name) end
    end
    -- guildmembers
-   --for i = 1, GetNumGuildMembers() do
-   --   name, _, _, _, _, _, _, _, isOnline,_,class = GetGuildRosterInfo(i)
-   --   if isOnline then AddNameToList(ret, name) end
-   --end
+   for i = 1, GetNumGuildMembers() do
+      name, _, _, _, _, _, _, _, isOnline,_,class = GetGuildRosterInfo(i)
+      if isOnline then AddNameToList(ret, name) end
+   end
+
    -- Remove ourselves
    if not addon.debug then ret[addon.playerName] = nil end
    -- Check if it's empty
    local isEmpty = true
    for k in pairs(ret) do isEmpty = false; break end
    ret[1] = isEmpty and "--No recipients available--" or nil
-   --table.sort(ret, function(a,b) return a > b end)
    return ret
 end
 
@@ -226,25 +214,6 @@ function Bookie:SendCommand(command, data, method)
 
 	addon:Debug(string.format("Sending %s comm: %s", method, command))
 	self:SendCommMessage("Bookie", toSend, method)
-	--[[
-	if lobby
-		*GUILD
-		*RAID/PARTY
-	if bookie_bets_open
-		*GUILD
-		*RAID/PARTY
-	
-	--set entrant comm method
-	if bookie_bets_closed
-		BookieBets.entrants[1..n].method
-
-	--set entrant comm method on join
-	if client
-		bookie
-
-	--]]
-
-	
 end
 
 --- Receives Bookie commands.

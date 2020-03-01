@@ -150,7 +150,7 @@ end
 function BookieBets:HandleTradeAccept(args)	
 	if not addon.isBookie then return end
 	if not self.activeTrade then addon:Debug("Bookie is not correctly open for trades."); return end
-	if args[1] ~= 1 then return end
+	if args[1] ~= 1 then addon:Debug("Trade conditions invalid."); return end
 
 	local status = self.bet.entrants[self.activeTrade.target].status
 	if status == addon.clientStatus.WaitingForTrade then
@@ -163,6 +163,7 @@ function BookieBets:HandleTradeAccept(args)
     	return
     end
     addon:Debug("traded: "..self.activeTrade.amount)
+    
 end
 
 function BookieBets:HandlePlayerTradeMoney()

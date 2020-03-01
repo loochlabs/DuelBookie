@@ -905,8 +905,6 @@ function Bookie:GetTabClientJoined()
 	duelerChoiceLabel:SetText("Select Your Choice")
 	body:AddChild(duelerChoiceLabel)
 	duelerChoiceLabel:SetJustifyH("CENTER")
-
-	--duelerChoiceLabel:SetFontObject(GameFontNormalLarge)
 	duelerChoiceLabel:SetFontObject(GameFontNormalLarge2)
 
 	local duelerPanel = AG:Create("SimpleGroup")
@@ -927,37 +925,14 @@ function Bookie:GetTabClientJoined()
 	dueler2Button:SetHeight(50)
 	duelerPanel:AddChild(dueler2Button)
 
-
-	--local buttonPanel = AG:Create("SimpleGroup")
-	--body:AddChild(buttonPanel)
-	--buttonPanel:SetFullWidth(true)
-	--buttonPanel:SetLayout("Flow")
-
-	--local selectedDueler = nil
-	--local submitButton = AG:Create("Button")
-	--submitButton:SetText("Submit")
-	--submitButton:SetRelativeWidth(0.5)
-	--submitButton:SetDisabled(true)
-	--submitButton:SetCallback("OnClick", function() ClientBets:SubmitWager(selectedDueler) end) 
-	--buttonPanel:AddChild(submitButton)
-
-
 	dueler1Button:SetCallback("OnClick", 
 		function(button) 
 			ClientBets:SubmitWager(1)
-			--selectedDueler = 1 
-			--button:SetColor(0,1,0,1)
-			--dueler2Button:SetColor(0.7,0.7,0.7,1)
-			--submitButton:SetDisabled(false)
 		end)
 
 	dueler2Button:SetCallback("OnClick", 
 		function(button) 
 			ClientBets:SubmitWager(2)
-			--selectedDueler = 2 
-			--button:SetColor(0,1,0,1)
-			--dueler1Button:SetColor(0.7,0.7,0.7,1)
-			--submitButton:SetDisabled(false)
 		end)
 
 	return returnGroup
@@ -1014,38 +989,6 @@ function Bookie:GetTabClientWaiting()
 	dueler2Label:SetFontObject(BookieFontDuelerChoiceSm)
 	dueler2Label:SetColor(unpack(DuelerColors[2]))
 	dueler2Label:SetRelativeWidth(0.43)
-
-	--dueler1, dueler2, wager
-	--[[
-	local titleContainer = AG:Create("SimpleGroup")
-	titleContainer:SetFullWidth(true)
-	titleContainer:SetLayout("Flow")
-	local titleGroup = AG:Create("SimpleGroup")
-	titleContainer:AddChild(titleGroup)
-	titleGroup:SetLayout("List")
-	titleGroup:SetFullWidth(true)
-
-	local dueler1Label = AG:Create("Label")
-	dueler1Label:SetText(bet.duelers[1])
-	dueler1Label:SetJustifyH("CENTER")
-	dueler1Label:SetFontObject(BookieFontDuelerChoiceSm)
-	dueler1Label:SetColor(unpack(DuelerColors[1]))
-	titleGroup:AddChild(dueler1Label)
-
-	local vslabel = AG:Create("Label")
-	vslabel:SetText("VS")
-	vslabel:SetJustifyH("CENTER")
-	titleGroup:AddChild(vslabel)
-
-	local dueler2Label = AG:Create("Label")
-	dueler2Label:SetText(bet.duelers[2])
-	dueler2Label:SetJustifyH("CENTER")
-	dueler2Label:SetFontObject(BookieFontDuelerChoiceSm)
-	dueler2Label:SetColor(unpack(DuelerColors[2]))
-	titleGroup:AddChild(dueler2Label)
-
-	body:AddChild(titleContainer)
-	--]]
 
 	local horzLine1 = AG:Create("Heading")
 	horzLine1:SetRelativeWidth(1)
@@ -1157,21 +1100,18 @@ function Bookie:GetTabClientWaiting()
 		buttonText = "Waiting for Payout"
 	end
 
-	--if status and status >= addon.clientStatus.WaitingForResults then
-		--buttonText = "Return to Lobby"
-
-	--	if status == addon.clientStatus.WaitingForPayout then
-	--		buttonDisable = true
-	--	end
-	--end
-
 	local cancelButton = AG:Create("Button")
 	footer:AddChild(cancelButton)
 	cancelButton:SetDisabled(buttonDisable)
 	cancelButton:SetText(buttonText)
 	cancelButton:SetFullWidth(true)
-	cancelButton:SetCallback("OnClick", function() StaticPopup_Show(ClientQuitConfirmationPopup) end) 
 	
+	if status <= addon.clientStatus.WaitingForPayout then
+		cancelButton:SetCallback("OnClick", function() StaticPopup_Show(ClientQuitConfirmationPopup) end) 
+	else
+		cancelButton:SetCallback("OnClick", function() ClientBets:QuitBet() end)
+	end
+
 	return returnGroup
 end
 
