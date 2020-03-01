@@ -314,7 +314,7 @@ function MDB_HideRootFrame()
 end
 
 function MDB_PrintVersionNumber()
-		
+	print(string.format("Bookie v%s",GetAddOnMetadata(AddonName, "Version")))
 end
 
 local slash_cmds = {
